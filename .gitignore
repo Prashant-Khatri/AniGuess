@@ -1,0 +1,18 @@
+# Dependency folders
+client/node_modules/
+server/node_modules/
+
+# Next.js build output
+client/.next/
+client/out/
+
+# Node/Express build output
+server/dist/
+
+# Environment variables / Secrets
+client/.env*.local
+server/.env
+
+# OS files
+.DS_Store
+Thumbs.db
