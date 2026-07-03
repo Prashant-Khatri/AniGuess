@@ -20,11 +20,12 @@ export const createRoom=(io : Server,socket : Socket)=>{
         userId : string
     })=>{
         try {
+            console.log('Inside createroom socket backend')
             const {userName,totalRounds,avatarId,userId}=data
             if(!userName || !totalRounds || !avatarId){
                 return socket.emit('join_error', { message: 'Fill all the required fields' })
             }
-            const roomId=Math.floor(Math.random()*10000).toString()
+            const roomId=Math.floor(Math.random()*1000000).toString()
             await redis.hset(`room:${roomId}`, {
                 roomId,
                 totalRounds : totalRounds.toString(),
@@ -191,7 +192,7 @@ export const playAgain=(io : Server,socket : Socket)=>{
                 timerEndsAt: '0'
             });
             //freshplayers
-            const playersRaw=await redis.hgetall(`room;${roomId}:players`)
+            const playersRaw=await redis.hgetall(`room:${roomId}:players`)
             for(const [userId,profileStr] of Object.entries(playersRaw)){
                 const profile : IPlayers=JSON.parse(profileStr as string)
                 profile.score=0;

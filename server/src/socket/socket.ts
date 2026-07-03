@@ -17,6 +17,9 @@ io.on('connection',(socket)=>{
     console.log('Socket connected : ',socket.id)
     createRoom(io,socket)
     joinRoom(io,socket)
+    socket.on('disconnect', (reason) => {
+        console.log(`❌ [SOCKET DETACHED] ID: ${socket.id} | Reason: ${reason}`)
+    })
 })
 
 export {app,io,server}
