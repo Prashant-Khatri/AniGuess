@@ -6,11 +6,8 @@ export interface ICharacter extends Document {
     alternateName : string[];
     imageUrl : string;
     difficulty : 'easy' | 'medium' | 'hard';
-    hints : {
-        hard : string;
-        medium : string;
-        easy : string;
-    };
+    hint1 : string;
+    hint2 : string;
 }
 
 const characterSchema=new Schema<ICharacter>({
@@ -33,19 +30,13 @@ const characterSchema=new Schema<ICharacter>({
         type : String,
         enum : ['easy','medium','hard']
     },
-    hints : {
-        hard : {
-            type : String,
-            required : true
-        },
-        medium : {
-            type : String,
-            required : true
-        },
-        easy : {
-            type : String,
-            required : true
-        }
+    hint1 : {
+        type : String,
+        required :true
+    },
+    hint2 : {
+        type : String,
+        required : true
     }
 },{timestamps : true})
 

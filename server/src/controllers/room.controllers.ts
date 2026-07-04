@@ -30,17 +30,17 @@ export const createRoom=(io : Server,socket : Socket)=>{
                 roomId,
                 totalRounds : totalRounds.toString(),
                 currentRound : '0',
+                currentTurn : '0',
                 adminId : socket.id,
                 status : 'lobby',
+                currentCharacterName : '',
                 currentCharacterUrl : '',
                 currentAnswer : '',
                 alternateAnswer : JSON.stringify([]), // ◄ Explicitly make this "[]" instead of letting it convert to ""
-                hintEasy : '',
-                hintMedium : '',
-                hintHard : '',
-                hintEasyRevealed : 'false', // ◄ Good practice to make these explicit strings too!
-                hintMediumRevealed : 'false',
-                hintHardRevealed : 'false',
+                hint1 : '',
+                hint2 : '',
+                hint1Revealed : 'false', // ◄ Good practice to make these explicit strings too!
+                hint2Revealed : 'false',
                 timerEndsAt : '0'
             })
             await redis.expire(`room:${roomId}`, 7200);
@@ -178,17 +178,16 @@ export const playAgain=(io : Server,socket : Socket)=>{
             }
             //room currentanswer,currentround,altername,status change
             await redis.hset(`room:${roomId}`, {
+                currentCharacterName : '',
                 currentCharacterUrl: '',
                 currentAnswer: '',
                 alternateAnswer: JSON.stringify([]), // ◄ Convert array to string
                 currentRound: '0',
                 status: 'lobby',
-                hintEasy: '',
-                hintMedium: '',
-                hintHard: '',
-                hintEasyRevealed: 'false',           // ◄ Convert boolean to string
-                hintMediumRevealed: 'false',         // ◄ Convert boolean to string
-                hintHardRevealed: 'false',           // ◄ Convert boolean to string
+                hint1: '',
+                hint2: '',
+                hint1Revealed: 'false',           // ◄ Convert boolean to string
+                hint2Revealed: 'false',         // ◄ Convert boolean to string
                 timerEndsAt: '0'
             });
             //freshplayers
