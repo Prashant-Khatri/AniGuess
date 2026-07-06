@@ -76,36 +76,56 @@ export default function JoinRoomForm() {
     };
 
     return (
-        <form onSubmit={handleJoin} className="space-y-6 max-w-md mx-auto p-4">
-            <Field>
-                <FieldLabel htmlFor="join-room-id">Room Code</FieldLabel>
+        <form onSubmit={handleJoin} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-indigo-500/30 rounded-2xl shadow-xl shadow-indigo-500/5 relative backdrop-blur-md overflow-hidden group">
+            {/* Top Decorative Indigo Cyber-Glow Accent */}
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+            
+            {/* Room Code Target Input Field */}
+            <Field className="space-y-1.5">
+                <FieldLabel htmlFor="join-room-id" className="text-xs uppercase font-extrabold tracking-wider text-slate-300 group-focus-within:text-indigo-400 transition-colors">
+                    🛰️ Broadcast Channel Code
+                </FieldLabel>
                 <Input
                     id="join-room-id"
                     type="text"
                     maxLength={6}
-                    placeholder="ENTER 6-LETTER CODE"
+                    placeholder="ENTER 6-LETTER VECTOR..."
                     value={roomId}
                     onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                    className={roomError ? "border-red-500 focus:border-red-500" : ""}
+                    className={`bg-slate-900/60 border-2 uppercase font-mono tracking-widest placeholder:text-slate-600 text-sm text-white focus:ring-0 rounded-xl transition-all duration-200
+                        ${roomError 
+                            ? "border-red-500 focus:border-red-500 shadow-md shadow-red-500/10" 
+                            : "border-slate-800 focus:border-indigo-500 focus:shadow-md focus:shadow-indigo-500/10"
+                        }`}
                 />
-                {roomError && <p className="text-xs text-red-500 mt-1">⚠ {roomError}</p>}
+                {roomError && (
+                    <p className="text-xs font-bold text-red-500 flex items-center mt-1 animate-pulse">
+                        ⚠️ CHANNEL ERROR: {roomError}
+                    </p>
+                )}
             </Field>
 
-            <Field>
-                <FieldLabel htmlFor="join-username">Username</FieldLabel>
+            {/* Username Selection Block */}
+            <Field className="space-y-1.5">
+                <FieldLabel htmlFor="join-username" className="text-xs uppercase font-extrabold tracking-wider text-slate-300">
+                    ✦ Player Codename
+                </FieldLabel>
                 <Input
                     id="join-username"
                     type="text"
-                    placeholder="Enter your username"
+                    placeholder="ENTER CODENAME..."
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
+                    className="bg-slate-900/60 border-2 border-slate-800 focus:border-indigo-500 focus:shadow-md focus:shadow-indigo-500/10 focus:ring-0 uppercase font-mono tracking-wide placeholder:text-slate-600 text-sm text-white rounded-xl transition-all duration-200"
                 />
             </Field>
 
-            {/* Avatar Picker with Claim Guard and Selection Highlight */}
-            <div>
-                <label className="text-sm font-medium block mb-2">Choose Avatar</label>
-                <div className="grid grid-cols-4 gap-2">
+            {/* Avatar Picker Gallery Registry */}
+            <div className="space-y-3">
+                <label className="text-xs uppercase font-extrabold tracking-wider text-slate-300 block">
+                    🧬 Claim Profile Frame
+                </label>
+                <div className="grid grid-cols-4 gap-2.5">
                     {AVATARS.map((a: Avatar) => {
                         const isTaken = takenAvatars.includes(a.id);
                         const isSelected = avatarId === a.id;
@@ -116,22 +136,51 @@ export default function JoinRoomForm() {
                             <Card 
                                 key={a.id} 
                                 onClick={() => !isTaken && setAvatarId(a.id)}
-                                className={`relative transition-all duration-200 border-2 
-                                    ${isTaken ? 'bg-red-950/10 border-red-900/50 cursor-not-allowed' : 'cursor-pointer'}
-                                    ${isSelected ? 'border-indigo-500 bg-indigo-500/10 scale-105 shadow-md' : 'border-slate-700'}
-                                    ${isGreyedOut ? 'opacity-30 filter grayscale' : 'opacity-100'}
+                                className={`transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
+                                    ${isTaken 
+                                        ? 'bg-red-950/5 border-red-950/40 cursor-not-allowed select-none' 
+                                        : 'bg-slate-900/40 cursor-pointer'
+                                    }
+                                    ${isSelected 
+                                        ? 'border-indigo-500 bg-indigo-500/10 scale-105 shadow-lg shadow-indigo-500/10 z-10' 
+                                        : !isTaken ? 'border-slate-900 hover:border-slate-700 hover:scale-[1.02]' : ''
+                                    }
+                                    ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
                                 `}
                             >
-                                {isTaken && (
-                                    <span className="absolute top-0 right-0 bg-red-600 text-[8px] text-white px-1 font-bold uppercase rounded-bl">
-                                        Taken
+                                {/* Micro Corner Ribbon Tag Indicators */}
+                                {isTaken ? (
+                                    <span className="absolute top-0 right-0 bg-red-600/90 text-[7px] text-white px-1 py-0.5 font-black uppercase rounded-bl-md tracking-wider shadow-sm z-20">
+                                        LOCKED
                                     </span>
-                                )}
-                                <CardHeader className="p-2 text-center">
-                                    <CardTitle className="text-xs truncate">{a.name}</CardTitle>
+                                ) : isSelected ? (
+                                    <div className="absolute top-0 right-0 w-3 h-3 bg-indigo-500 rounded-bl-md shadow-sm z-20" />
+                                ) : null}
+
+                                <CardHeader className="p-1.5 text-center bg-slate-950/60 border-b border-slate-900/40">
+                                    <CardTitle className={`text-[10px] font-bold tracking-tight truncate transition-colors
+                                        ${isTaken 
+                                            ? 'text-red-500/70' 
+                                            : isSelected ? 'text-indigo-400' : 'text-slate-400 group-hover/card:text-slate-200'
+                                        }`}>
+                                        {a.name}
+                                    </CardTitle>
                                 </CardHeader>
-                                <CardContent className="flex justify-center p-2 pb-3">
-                                    <Image src={a.imageUrl} alt={a.name} height={40} width={40} className="rounded-full" />
+                                
+                                <CardContent className="flex justify-center p-2.5 bg-transparent">
+                                    <div className={`relative rounded-full p-0.5 transition-all duration-300 border
+                                        ${isSelected 
+                                            ? 'border-indigo-400 scale-110 shadow-sm shadow-indigo-400/20' 
+                                            : isTaken ? 'border-red-950' : 'border-slate-800'
+                                        }`}>
+                                        <Image 
+                                            src={a.imageUrl} 
+                                            alt={a.name} 
+                                            height={44} 
+                                            width={44} 
+                                            className="rounded-full bg-slate-950 object-cover" 
+                                        />
+                                    </div>
                                 </CardContent>
                             </Card>
                         );
@@ -139,8 +188,13 @@ export default function JoinRoomForm() {
                 </div>
             </div>
 
-            <Button type='submit' disabled={!!roomError || avatarId === 0 || !userName} className="w-full">
-                Join Match
+            {/* Submition Dispatch Gateway Button */}
+            <Button 
+                type='submit' 
+                disabled={!!roomError || avatarId === 0 || !userName.trim() || roomId.length < 4} 
+                className="w-full py-6 mt-2 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-500 hover:to-violet-400 disabled:from-slate-900 disabled:to-slate-900 text-slate-950 disabled:text-slate-600 font-black tracking-widest text-sm uppercase rounded-xl border border-indigo-400/20 hover:border-indigo-400/40 shadow-lg hover:shadow-indigo-500/20 transition-all duration-300 transform active:scale-95 cursor-pointer"
+            >
+                ⚡ Infiltrate Match Vector ⚡
             </Button>
         </form>
     );

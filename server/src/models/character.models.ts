@@ -43,3 +43,5 @@ const characterSchema=new Schema<ICharacter>({
 export const Character=model<ICharacter>('Character',characterSchema)
 
 //data : name,avatar,rounds (frontend)
+
+

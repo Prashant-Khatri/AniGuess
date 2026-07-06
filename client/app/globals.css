@@ -143,3 +143,17 @@
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@theme {
+  /* This automatically registers and builds the utility class: animate-anime-zoom */
+  --animate-anime-zoom: anime-zoom 8s ease-in-out infinite;
+
+  @keyframes anime-zoom {
+    0%, 100% { 
+      transform: scale(1.02) rotate(0deg); 
+    }
+    50% { 
+      transform: scale(1.12) rotate(0.5deg); 
+    }
+  }
+}

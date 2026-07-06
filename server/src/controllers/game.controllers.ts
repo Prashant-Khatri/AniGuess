@@ -4,6 +4,10 @@ import axios from "axios";
 import { Character, ICharacter } from "../models/character.models.js";
 import { IPlayers } from "./room.controllers.js";
 
+
+// game_error
+// kicked_from_room
+
 export const kickPlayer = (io: Server, socket: Socket) => {
     socket.on('kick_player', async (data: {
         roomId: string;
@@ -25,12 +29,12 @@ export const kickPlayer = (io: Server, socket: Socket) => {
             let kickedPlayerUserName = "";
             let targetUserId = "";
             let targetAvatarId: number | null = null;
-    
+
             // 3. Scan the hash map to isolate the matching profile matching the socket target
             const playersRaw = await redis.hgetall(`${roomKey}:players`);
             for (const [userId, playerStr] of Object.entries(playersRaw)) {
                 const currentPlayer: IPlayers = JSON.parse(playerStr);
-    
+
                 if (currentPlayer.socketId === targetSocketId) {
                     kickedPlayerUserName = currentPlayer.userName;
                     targetUserId = userId;
@@ -38,40 +42,40 @@ export const kickPlayer = (io: Server, socket: Socket) => {
                     break; // Target identified, break loop early
                 }
             }
-    
+
             // 4. Fallback safeguard if the target socket is already missing or unindexed
             if (!targetUserId) {
                 return socket.emit("game_error", { message: "Player not found in active lobby memory." });
             }
-    
+
             // 5. Atomic database extraction cleanups
             // Remove user from the Redis room players hash map registry
             await redis.hdel(`${roomKey}:players`, targetUserId);
-    
+
             // Clean up the unique socket tracker mapping key
             await redis.del(`socket_to_room:${targetSocketId}`);
-    
+
             // Free up the player's avatar slot so other incoming applicants can claim it
             if (targetAvatarId !== null) {
                 await redis.srem(`${roomKey}:taken_avatars`, targetAvatarId);
             }
-    
+
             // 6. Alert the kicked client immediately so they get redirected to the homepage
             io.to(targetSocketId).emit("kicked_from_room");
-    
+
             // Force the disconnected socket pipeline instance to disconnect or drop room channels
             const targetSocketInstance = io.sockets.sockets.get(targetSocketId);
             if (targetSocketInstance) {
                 targetSocketInstance.leave(roomId);
             }
-    
+
             // 7. Extract the updated roster array and broadcast updates + notice to remaining participants
             const remainingPlayersRaw = await redis.hgetall(`${roomKey}:players`);
             const freshRoster: IPlayers[] = Object.values(remainingPlayersRaw).map((v) => JSON.parse(v));
-    
+
             // Synchronize the room UI list configuration instantly
             io.to(roomId).emit("room_state_update", freshRoster);
-    
+
             // Print the clean system notice to the chat feed log matrix
             io.to(roomId).emit("feed_message", {
                 userName: "SYSTEM",
@@ -79,9 +83,9 @@ export const kickPlayer = (io: Server, socket: Socket) => {
                 message: `${kickedPlayerUserName} was kicked by the host.`
             })
         } catch (error) {
-            if(error instanceof Error){
-                console.log("Internal server error unable to kick : ",error.message)
-                return socket.emit('game_error',{message : 'Internal server error unable to kick'})
+            if (error instanceof Error) {
+                console.log("Internal server error unable to kick : ", error.message)
+                return socket.emit('game_error', { message: 'Internal server error unable to kick' })
             }
         }
     })
@@ -168,13 +172,39 @@ export const endTurnIntermission = async (io: Server, roomId: string) => {
     //showleaderboard for client (answer and players)
     const currentAnswer = await redis.hget(roomKey, 'currentAnswer')
     const currentCharacterName = await redis.hget(roomKey, 'currentCharacterName')
-    const allPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-    const leaderBoardSnapShot = Object.values(allPlayersRaw).map((p) => JSON.parse(p))
-    io.to(roomId).emit('round_intermission_start', {
-        currentAnswer,
-        currentCharacterName,
-        leaderBoardSnapShot
-    })
+    const alternateName: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
+    const currentCharacterUrl = await redis.hget(roomKey, 'currentCharacterUrl')
+    const playersRaw = await redis.hgetall(`${roomKey}:players`);
+
+    // Object.entries splits the hash into an array of tuples: [userIdKey, stringifiedPlayerValue]
+    const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+        const parsedPlayer = JSON.parse(playerStr);
+
+        return {
+            ...parsedPlayer,
+            userId: userId // Injects the Redis hash field key inside the object
+        };
+    });
+    const sortedPlayers = playersList.sort((a, b) => b.score - a.score);
+
+    // 4. Map into your precise IntermissionData contract layout structure
+    const turnScores = sortedPlayers.map((player) => ({
+        userId: player.socketId, // Mapping socketId or unique key as userId boundary
+        userName: player.userName,
+        avatarId: player.avatarId,
+        pointsGained: player.turnScore,
+        totalScore: player.score
+    }));
+
+    const intermissionPayload = {
+        correctAnswer: currentCharacterName,
+        alternateNames: alternateName,
+        imageUrl: currentCharacterUrl,
+        turnScores // Sent fully ordered from highest to lowest score
+    };
+
+    // 5. Transmit the payload matrix down the socket pipes
+    io.to(roomId).emit('round_intermission_start', intermissionPayload);
     //hold for 4 sec and loadnextround()
     setTimeout(async () => {
         const verifyStatus = await redis.hget(roomKey, "status");
@@ -207,7 +237,7 @@ export const runRoundTimerLoop = (io: Server, roomId: string, roundId: number, t
         }
         //hint emit io
         if (timeLeftInSecond <= 15) {
-                    const ishint1Revealed = (await redis.hget(roomKey, 'hint1Revealed')) === 'true';
+            const ishint1Revealed = (await redis.hget(roomKey, 'hint1Revealed')) === 'true';
             if (!ishint1Revealed) {
                 io.to(roomId).emit('hint_reveal', { id: 1, hint: await redis.hget(roomKey, 'hint1') })
             }
@@ -244,10 +274,32 @@ export const loadNextRound = async (io: Server, roomId: string) => {
     const nextCharacterRaw = await redis.lpop(queueKey)
     if (!nextCharacterRaw) {
         await redis.hset(roomKey, { status: "ended" });
-        const finalPlayers = Object.values(await redis.hgetall(playerKey)).map((p) => JSON.parse(p));
-        return io.to(roomId).emit("game_ended", finalPlayers);
+        const playersRaw = await redis.hgetall(`${roomKey}:players`);
+        const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+            const parsedPlayer = JSON.parse(playerStr);
+            return {
+                ...parsedPlayer,
+                userId: userId // Injects the Redis hash field key inside the object
+            };
+        });
+
+        // 2. SORTING MECHANISM: Sort descending high-to-low based on overall total points
+        const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
+
+        // 3. Map into the final leaderboard array tracking explicit placement numerical ranks
+        const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
+            userId: player.socketId,
+            userName: player.userName,
+            avatarId: player.avatarId,
+            totalScore: player.score,
+            rank: index + 1 // Loop index index tracking placement values (1st, 2nd, 3rd...)
+        }));
+
+        const endGamePayload = {
+            finalLeaderboard
+        };
     }
-    const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw)
+    const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw as string)
     const currentRound = parseInt(await redis.hget(roomKey, 'currentRound') as string)
     const currentTurn = parseInt(await redis.hget(roomKey, 'currentTurn') as string)
     let nextRound = currentRound

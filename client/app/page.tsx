@@ -54,16 +54,22 @@ export default function Home() {
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 bg-slate-900/60 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-md min-h-[600px]">
 
         {/* LEFT COLUMN: Visual Anime Art Showcase (5 Columns Wide) */}
-        <div className="relative md:col-span-5 bg-slate-950 min-h-[250px] md:min-h-full overflow-hidden flex flex-col justify-end p-6 border-b md:border-b-0 md:border-r border-slate-800 group">
+        <div className="relative md:col-span-5 bg-slate-950 min-h-[320px] sm:min-h-[400px] md:min-h-full overflow-hidden flex flex-col justify-end p-6 border-b md:border-b-0 md:border-r border-slate-800 group">
 
-          {/* PLACEHOLDER: Visual Media / Anime Art Banner Background */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent z-10" />
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-105 opacity-60"
-            style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1000')` // High-fidelity visual asset placeholder
-            }}
-          />
+          {/* Fully Responsive & Optimized Next.js Image Element Tag */}
+          <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-105 opacity-60 z-0">
+            <Image
+              src="https://i.pinimg.com/736x/1a/30/fc/1a30fc8b941014520ab470cbb178685c.jpg"
+              alt="Anime Artwork Banner"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 420px"
+              className="object-cover object-center"
+            />
+          </div>
+          
+          {/* Top Gradient Linear Overlay Filter Mask */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent z-10 pointer-events-none" />
 
           {/* Typography Overlays */}
           <div className="relative z-20 space-y-2">
