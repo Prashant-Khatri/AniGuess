@@ -1,20 +1,17 @@
 'use client'
+import { useSocketListener } from "@/hooks/useSocketListener";
 import { socket } from "@/lib/socket";
+import { useGameStore } from "@/store/game.store";
 import React, { useEffect, useState } from "react";
 
 export default function GameLoopTimer() {
-  const [remainingTime, setRemainingTime] = useState<number>(20);
-  const maxTime = 20; // Used to compute the percentage layout radius delta
+  const {timerTickListener}=useSocketListener(socket)
+  const {remainingTime}=useGameStore()
+  // const [remainingTime, setRemainingTime] = useState<number>(30);
+  const maxTime = 30; // Used to compute the percentage layout radius delta
 
   useEffect(() => {
-    socket.on('timer_tick', (data: { timeLeftInSecond: number }) => {
-      const { timeLeftInSecond } = data;
-      setRemainingTime(timeLeftInSecond);
-    });
-
-    return () => {
-      socket.off('timer_tick');
-    };
+    timerTickListener()
   }, []);
 
   // Compute percentage for the circular svg dashOffset calculation
@@ -82,9 +79,6 @@ export default function GameLoopTimer() {
           {/* Absolute Centered Countdown Text Element */}
           <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
             <span className={`font-mono text-2xl font-black tracking-tighter ${textColor} ${isCritical ? 'animate-ping opacity-70 absolute scale-75' : ''}`}>
-              {remainingTime}
-            </span>
-            <span className={`font-mono text-2xl font-black tracking-tighter ${textColor}`}>
               {remainingTime}
             </span>
             <span className="text-[7px] font-mono font-black text-slate-500 tracking-widest uppercase mt-[-2px]">

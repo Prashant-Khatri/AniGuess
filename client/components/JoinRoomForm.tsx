@@ -10,35 +10,37 @@ import { useRouter } from 'next/navigation';
 import axios, { AxiosError } from 'axios';
 import { useRoomHandler } from '@/hooks/useRoomHandler';
 import { socket } from '@/lib/socket';
+import { useGameStore } from '@/store/game.store';
 
 export default function JoinRoomForm() {
     const {joinRoom}=useRoomHandler(socket)
     const [userName, setUserName] = useState<string>("");
     const [roomId, setRoomId] = useState<string>("");
     const [avatarId, setAvatarId] = useState<number>(0);
-    const [takenAvatars, setTakenAvatars] = useState<number[]>([]);
-    const [roomError, setRoomError] = useState<string>("");
+    const {takenAvatars,roomError,checkTakenAvatars,setTakenAvatars,setRoomError}=useGameStore()
+    // const [takenAvatars, setTakenAvatars] = useState<number[]>([]);
+    // const [roomError, setRoomError] = useState<string>("");
     const router = useRouter();
 
-     const checkTakenAvatars=async()=>{
-        try {
-            const res=await axios.get(`http://localhost:5000/api/taken-avatars/${roomId}`)
-            const numericAvatars = res.data.takenAvatars.map((id: string) => Number(id));
-            setTakenAvatars(numericAvatars)
-            setRoomError("")
-        } catch (error) {
-            const axiosError=error as AxiosError
-            console.log("Inside join room error ",axiosError.response)
-            setRoomError(axiosError.message)
-            setTakenAvatars([])
-        }
-    }
+    //  const checkTakenAvatars=async()=>{
+    //     try {
+    //         const res=await axios.get(`http://localhost:5000/api/taken-avatars/${roomId}`)
+    //         const numericAvatars = res.data.takenAvatars.map((id: string) => Number(id));
+    //         setTakenAvatars(numericAvatars)
+    //         setRoomError("")
+    //     } catch (error) {
+    //         const axiosError=error as AxiosError
+    //         console.log("Inside join room error ",axiosError.response)
+    //         setRoomError(axiosError.message)
+    //         setTakenAvatars([])
+    //     }
+    // }
 
     useEffect(() => {
         // Query taken items from Redis as soon as room code matches structural limit
         if (roomId.length === 6) {
             console.log("RoomId is : ",roomId)
-            checkTakenAvatars()
+            checkTakenAvatars(roomId)
         } else {
             setTakenAvatars([]);
             setRoomError("");

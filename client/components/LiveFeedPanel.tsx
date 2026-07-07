@@ -1,15 +1,17 @@
 'use client'
+import { useSocketListener } from "@/hooks/useSocketListener";
 import { socket } from "@/lib/socket";
+import { useGameStore } from "@/store/game.store";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
-interface FeedMessage {
+export interface FeedMessage {
   id: string;
   userName: string;
   guesss: string;
 }
 
-interface FeedMessageData {
+export interface FeedMessageData {
   userName: string;
   systemMsg: boolean;
   message: string;
@@ -19,44 +21,13 @@ interface LiveFeedPanelProps {
   status: string; // "lobby" | "playing" | "intermission" | "ended"
 }
 
-export default function LiveFeedPanel({ status }: LiveFeedPanelProps) {
-  const [feedMessagesCollection, setFeedMessagesCollection] = useState<FeedMessage[]>([]);
+export default function LiveFeedPanel() {
+  // const [feedMessagesCollection, setFeedMessagesCollection] = useState<FeedMessage[]>([]);
+  const {feedMessagesCollection,status,setFeedMessagesCollection}=useGameStore()
+  const {feedMessageListener}=useSocketListener(socket)
 
   useEffect(() => {
-    socket.on('feed_message', (data: FeedMessageData) => {
-      const { userName, systemMsg, message } = data;
-
-      if (!systemMsg) {
-        // Appends new transmissions in latest-first format (newest at the top)
-        setFeedMessagesCollection((prev) => [
-          { 
-            id: `${Date.now()}-${Math.random()}`, 
-            userName, 
-            guesss: message 
-          },
-          ...prev,
-        ]);
-      } else {
-        // High-fidelity Anime/Cyberpunk Terminal Style Toast Notification
-        toast.custom((t) => (
-          <div
-            className={`${
-              t.visible ? 'animate-enter' : 'animate-leave'
-            } max-w-md w-full bg-slate-950/90 border-2 border-dashed border-amber-500/40 backdrop-blur-md px-4 py-3 rounded-xl shadow-2xl shadow-amber-500/10 flex items-center space-x-3 pointer-events-auto font-mono text-xs`}
-          >
-            <span className="text-base text-amber-400 animate-pulse">⚡</span>
-            <div className="flex-1 text-slate-200 tracking-wide leading-relaxed">
-              <span className="text-amber-400 font-black uppercase tracking-widest mr-1">[SYSTEM]:</span>
-              {message}
-            </div>
-          </div>
-        ), { duration: 4000 });
-      }
-    });
-
-    return () => {
-      socket.off('feed_message');
-    };
+    feedMessageListener()
   }, []);
 
   // Automatically reset the stream logs whenever a new round starts or returns to lobby

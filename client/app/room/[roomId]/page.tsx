@@ -13,8 +13,11 @@ import DisplayScreen from "@/components/DisplayScreen";
 import RoasterPanel from "@/components/RoasterPanel";
 import LiveFeedPanel from "@/components/LiveFeedPanel";
 import GuessInputBar from "@/components/GuessInputBar";
+import { useGameHandler } from "@/hooks/useGameHandler";
+import { useSocketListener } from "@/hooks/useSocketListener";
+import { useGameStore } from "@/store/game.store";
 
-interface IntermissionData {
+export interface IntermissionData {
   correctAnswer: string;
   alternateNames: string[];
   imageUrl: string;
@@ -27,7 +30,7 @@ interface IntermissionData {
   }[];
 }
 
-interface EndGameData {
+export interface EndGameData {
   finalLeaderboard: {
     userId: string;
     userName: string;
@@ -46,111 +49,49 @@ export default function RoomPage() {
   const roomId = typeof params?.roomId === 'string' ? params.roomId.toUpperCase() : "";
   console.log(roomId)
   
-  const currentSocketId = socket.id;
-  const [hostName, setHostName] = useState<string>("");
-  const [avatarUrl, setAvatarUrl] = useState<string>("");
-  const [adminId, setAdminId] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [status, setStatus] = useState<string>("lobby"); // lobby, playing, intermission, ended
+  // const currentSocketId = socket.id;
+  const {
+    hostName,
+    avatarUrl,
+    adminId,
+    isAdmin,
+    status,
+    intermissionData,
+    endGameData,
+    showAnswerPhase,
+    getAdminIdandAvatar
+  }=useGameStore()
+  // const [hostName, setHostName] = useState<string>("");
+  // const [avatarUrl, setAvatarUrl] = useState<string>("");
+  // const [adminId, setAdminId] = useState<string>("");
+  // const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  // const [status, setStatus] = useState<string>("lobby"); // lobby, playing, intermission, ended
 
   // State payloads to power tactical overlay matrices
-  const [intermissionData, setIntermissionData] = useState<IntermissionData | null>(null);
-  const [endGameData, setEndGameData] = useState<EndGameData | null>(null);
+  // const [intermissionData, setIntermissionData] = useState<IntermissionData | null>(null);
+  // const [endGameData, setEndGameData] = useState<EndGameData | null>(null);
 
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
-  const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
-
-  const getAdminIdandAvatar = async (targetRoomId: string) => {
-    console.log("hello")
-    try {
-      const res = await axios.get(`http://localhost:5000/api/get-admin/${targetRoomId}`);
-      console.log("Called api",res)
-      const { adminId, avatarId, userName } = res.data;
-      setAdminId(adminId);
-      setHostName(userName);
-      
-      // Target correct image URL structure out of layout matrix index array
-      const foundAvatar = AVATARS.find(a => a.id === Number(avatarId));
-      setAvatarUrl(foundAvatar ? foundAvatar.imageUrl : "https://api.dicebear.com/7.x/bottts/svg?seed=host");
-      
-      if (adminId === currentSocketId) {
-        setIsAdmin(true);
-      }
-      console.log('Data : ',hostName,avatarUrl,adminId,isAdmin,status)
-    } catch (error) {
-      toast.error("Failed to sync structural room admin vectors.");
-    }
-  };
+  // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
+  const {handleDisbandRoom,handleLeaveRoom,handlePlayAgain}=useGameHandler(socket)
+  const {gameEndedListener,gameErrorListener,gameStartedListener,roundInitListener,roundIntermissionStartListener,kickedFromRoomListener}=useSocketListener(socket)
 
   useEffect(() => {
     if (!roomId) return;
     console.log("Room Id is : ",roomId)
     getAdminIdandAvatar(roomId);
-  }, [roomId, currentSocketId]);
+  }, [roomId, socket.id]);
 
   useEffect(() => {
-    // 1. Error intercept systems
-    socket.on('game_error', (data: { message: string }) => {
-      toast.error(`❌ MATRIX EXCEPTION: ${data.message}`, {
-        style: { background: '#0f172a', color: '#f43f5e', border: '1px solid #f43f5e30', fontFamily: 'monospace' }
-      });
-    });
-
-    socket.on('kicked_from_room', (data: { message: string }) => {
-      toast.error(`🚫 EXPATRIATED: ${data.message || 'You have been kicked.'}`, {
-        style: { background: '#0f172a', color: '#ef4444', border: '1px solid #ef444430', fontFamily: 'monospace' }
-      });
-      router.push('/');
-    });
-
-    // 2. Loop state operations
-    socket.on('round_init', () => {
-      setStatus('playing');
-      setIntermissionData(null);
-    });
-
-    socket.on('game_started', () => {
-      setStatus('playing');
-      toast.success("⚔️ THE GAME MATRIX HAS COMMENCED!", {
-        style: { background: '#0f172a', color: '#10b981', border: '1px solid #10b98130', fontFamily: 'monospace' }
-      });
-    });
-
-    socket.on('round_intermission_start', (data: IntermissionData) => {
-      setIntermissionData(data);
-      setStatus('intermission');
-      setShowAnswerPhase(true);
-
-      // Auto flip intermission views from Answer Canvas to Turn Scores after 4.5 seconds
-      const phaseTimer = setTimeout(() => {
-        setShowAnswerPhase(false);
-      }, 4500);
-
-      return () => clearTimeout(phaseTimer);
-    });
-
-    socket.on('game_ended', (data: EndGameData) => {
-      setEndGameData(data);
-      setStatus('ended');
-    });
-
-    return () => {
-      socket.off('game_error');
-      socket.off('kicked_from_room');
-      socket.off('round_init');
-      socket.off('game_started');
-      socket.off('round_intermission_start');
-      socket.off('game_ended');
-    };
+    gameErrorListener()
+    kickedFromRoomListener()
+    roundInitListener()
+    gameStartedListener()
+    roundIntermissionStartListener()
+    gameEndedListener()
   }, [router]);
 
   // Host Action Control Handlers
-  const handlePlayAgain = () => socket.emit('restart_game', { roomId });
-  const handleDisbandRoom = () => socket.emit('disband_room', { roomId });
-  const handleLeaveRoom = () => {
-    socket.emit('leave_room', { roomId });
-    router.push('/');
-  };
 
   return (
     <main className="min-h-screen w-full bg-slate-950 p-3 sm:p-6 text-slate-100 flex flex-col space-y-4 font-sans antialiased relative overflow-hidden selection:bg-indigo-500 selection:text-white">
@@ -159,21 +100,21 @@ export default function RoomPage() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none z-0" />
 
       {/* 1. Global Room Header Matrix Banner */}
-      <RoomHeader roomId={roomId} hostName={hostName} hostAvatarUrl={avatarUrl} status={status}/>
+      <RoomHeader roomId={roomId}/>
 
       {/* Main Form/Arena Controller Frame */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start relative z-10">
         
         {/* Core Screen Frame & Action Dispatch Trackers */}
         <div className="lg:col-span-7 flex flex-col space-y-4 h-full justify-between">
-          <DisplayScreen status={status} isAdmin={isAdmin} />
+          <DisplayScreen/>
           <GuessInputBar roomId={roomId} />
         </div>
 
         {/* Tactical Feeds & Leaderboard Registers */}
         <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 h-full">
-          <RoasterPanel currentSocketId={currentSocketId || ""} isAdmin={isAdmin} roomId={roomId} status={status} />
-          <LiveFeedPanel status={status} />
+          <RoasterPanel roomId={roomId}/>
+          <LiveFeedPanel/>
         </div>
       </div>
 
@@ -294,13 +235,13 @@ export default function RoomPage() {
               {isAdmin ? (
                 <>
                   <button 
-                    onClick={handlePlayAgain}
+                    onClick={()=>handlePlayAgain(roomId)}
                     className="py-3 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-500 hover:to-violet-400 text-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition shadow-lg hover:shadow-indigo-500/10 cursor-pointer active:scale-95"
                   >
                     ⚡ Rematch Vector ⚡
                   </button>
                   <button 
-                    onClick={handleDisbandRoom}
+                    onClick={()=>handleDisbandRoom(roomId)}
                     className="py-3 bg-slate-950 hover:bg-red-950/40 text-slate-400 hover:text-red-400 border border-slate-800 hover:border-red-500/30 font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer active:scale-95"
                   >
                     💥 Disband Terminal
@@ -308,7 +249,7 @@ export default function RoomPage() {
                 </>
               ) : (
                 <button 
-                  onClick={handleLeaveRoom}
+                  onClick={()=>handleLeaveRoom(roomId)}
                   className="col-span-2 py-3 bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-300 font-mono font-black text-xs uppercase tracking-widest rounded-xl transition cursor-pointer active:scale-95"
                 >
                   🚪 Disconnect From Lobby Vector

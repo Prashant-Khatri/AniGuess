@@ -105,15 +105,17 @@ export const handlePlayerGuess = (io: Server, socket: Socket) => {
             if (status !== 'playing') {
                 return
             }
+            console.log("Inside submit guess guess is :",guess)
             const playerRaw = await redis.hget(`${roomKey}:players`, userId)
             if (!playerRaw) return;
             const player: IPlayers = JSON.parse(playerRaw);
             // Block submissions if player already guessed correctly
             if (player.hasGuessed) return;
             //check guess is right or wrong
-            const answer = await redis.hget(roomKey, 'currentAnswer')
+            const answer = await redis.hget(roomKey, 'currentCharacterName')
+            console.log("Inside submit guess and answer is : ",answer)
             const alternateAnswer: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
-            const cleanedGuess = guess.toLowerCase()
+            const cleanedGuess = guess.trim().toLowerCase()
             const isCorrect = cleanedGuess === answer || alternateAnswer.includes(cleanedGuess)
             //right: cal turnscore set hash hasguessed,turnscore,score emit feed_message
             if (isCorrect) {
@@ -201,6 +203,7 @@ export const endTurnIntermission = async (io: Server, roomId: string) => {
         alternateNames: alternateName,
         imageUrl: currentCharacterUrl,
         turnScores // Sent fully ordered from highest to lowest score
+        //here add the anime name also
     };
 
     // 5. Transmit the payload matrix down the socket pipes
@@ -268,9 +271,14 @@ export const loadNextRound = async (io: Server, roomId: string) => {
     for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
         const profile: IPlayers = JSON.parse(profileStr)
         profile.hasGuessed = false,
-            profile.turnScore = 0
-        await redis.hset(playerKey, userId, JSON.stringify(profile))
+        profile.turnScore = 0
+        console.log("New profile for next round",profile)
+        await redis.hset(`${roomKey}:players`,userId,JSON.stringify(profile))
     }
+    const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
+    const resetedAllPlayers: IPlayers[] = Object.values(resetedAllPlayersRaw).map((p) => JSON.parse(p))
+    console.log("Ab me krne wala hu reset : ",resetedAllPlayers)
+    io.to(roomId).emit('room_state_update',resetedAllPlayers)
     const nextCharacterRaw = await redis.lpop(queueKey)
     if (!nextCharacterRaw) {
         await redis.hset(roomKey, { status: "ended" });
@@ -298,8 +306,10 @@ export const loadNextRound = async (io: Server, roomId: string) => {
         const endGamePayload = {
             finalLeaderboard
         };
+        return io.to(roomId).emit('game_ended',endGamePayload)
     }
     const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw as string)
+    console.log("I am inside load next round backend current character : ",nextCharacter)
     const currentRound = parseInt(await redis.hget(roomKey, 'currentRound') as string)
     const currentTurn = parseInt(await redis.hget(roomKey, 'currentTurn') as string)
     let nextRound = currentRound
@@ -308,7 +318,7 @@ export const loadNextRound = async (io: Server, roomId: string) => {
         nextTurn = 0
         nextRound += 1
     }
-    const roundDurationMs = 20000
+    const roundDurationMs = 30*1000
     const timerEndsAt = Date.now() + roundDurationMs;
     await redis.hset(roomKey, {
         currentRound: nextRound.toString(),
@@ -324,6 +334,7 @@ export const loadNextRound = async (io: Server, roomId: string) => {
         timerEndsAt: timerEndsAt.toString()
     })
     await redis.del(`${roomKey}:feed`)
+    await redis.hset(roomKey,{status : 'playing'})
     io.to(roomId).emit("round_init", {
         currentRound: nextRound,
         currentTurn: nextTurn,

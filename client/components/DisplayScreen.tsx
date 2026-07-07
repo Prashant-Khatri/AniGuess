@@ -3,6 +3,9 @@ import { socket } from "@/lib/socket";
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { useGameHandler } from "@/hooks/useGameHandler";
+import { useSocketListener } from "@/hooks/useSocketListener";
+import { useGameStore } from "@/store/game.store";
 
 export interface IPlayers {
     userName : string;
@@ -20,49 +23,42 @@ interface DisplayScreenProps {
   isAdmin: boolean; // Determines if the current user is the host
 }
 
-export default function DisplayScreen({ status, isAdmin }: DisplayScreenProps) {
+export default function DisplayScreen() {
   const params = useParams();
   const roomId = typeof params?.roomId === "string" ? params.roomId.toUpperCase() : "";
+  const {round,imageUrl,hint1,hint2,isAdmin,status}=useGameStore()
 
-  const [round, setRound] = useState<number>(1);
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const [hint1, setHint1] = useState<string>("");
-  const [hint2, setHint2] = useState<string>("");
+  // const [round, setRound] = useState<number>(1);
+  // const [imageUrl, setImageUrl] = useState<string>("");
+  // const [hint1, setHint1] = useState<string>("");
+  // const [hint2, setHint2] = useState<string>("");
+
+  const {startGame}=useGameHandler(socket)
+  const {roundInitListener,hintRevealListener}=useSocketListener(socket)
 
   useEffect(() => {
-    socket.on('round_init', (data: {
-      currentRound: number,
-      currentTurn: number,
-      imageUrl: string,
-      timerEndsAt: number,
-      players: IPlayers[]
-    }) => {
-      const { currentRound, imageUrl } = data;
-      setRound(currentRound);
-      setImageUrl(imageUrl);
-      // Clear old hints for the new round
-      setHint1("");
-      setHint2("");
-    });
+    // socket.on('round_init', (data: {
+    //   currentRound: number,
+    //   currentTurn: number,
+    //   imageUrl: string,
+    //   timerEndsAt: number,
+    //   players: IPlayers[]
+    // }) => {
+    //   const { currentRound, imageUrl } = data;
+    //   setRound(currentRound);
+    //   setImageUrl(imageUrl);
+    //   // Clear old hints for the new round
+    //   setHint1("");
+    //   setHint2("");
+    // });
+    // roundInitListener()
 
-    socket.on('hint_reveal', (data: {
-      id: number,
-      hint: string
-    }) => {
-      const { id, hint } = data;
-      if (id === 1) setHint1(hint);
-      if (id === 2) setHint2(hint);
-    });
-
-    return () => {
-      socket.off('round_init');
-      socket.off('hint_reveal');
-    };
+    hintRevealListener()
   }, []);
 
   const handleStartGame = () => {
     if (!roomId) return;
-    socket.emit("start_game", { roomId });
+    startGame(roomId)
   };
 
   return (
@@ -72,7 +68,7 @@ export default function DisplayScreen({ status, isAdmin }: DisplayScreenProps) {
       {status === 'playing' && (
         <div 
           className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-overlay pointer-events-none transition-opacity duration-1000 animate-pulse"
-          style={{ backgroundImage: `url('https://i.pinimg.com/736x/1a/30/fc/1a30fc8b941014520ab470cbb178685c.jpg')` }}
+          style={{ backgroundImage: `url('https://i.pinimg.com/736x/62/dc/4f/62dc4f10cee9cccab5588d311195569e.jpg')` }}
         />
       )}
 
@@ -85,7 +81,7 @@ export default function DisplayScreen({ status, isAdmin }: DisplayScreenProps) {
           <div className="relative w-48 h-48 rounded-2xl border-2 border-dashed border-indigo-500/30 bg-slate-950/80 p-2 flex items-center justify-center shadow-2xl overflow-hidden group/lobby">
             <div className="absolute inset-0 bg-gradient-to-t from-indigo-950/40 to-transparent z-10" />
             <img 
-              src="https://i.pinimg.com/736x/1a/30/fc/1a30fc8b941014520ab470cbb178685c.jpg" 
+              src="https://i.pinimg.com/474x/ff/16/b5/ff16b53863df2cc4c9d5f7cec00a4b29.jpg" 
               alt="Lobby Standby Asset" 
               className="w-full h-full object-cover rounded-xl opacity-60 transition-transform duration-700 group-hover/lobby:scale-105"
             />
@@ -144,7 +140,7 @@ export default function DisplayScreen({ status, isAdmin }: DisplayScreenProps) {
               <img 
                 src={imageUrl} 
                 alt="Target Identity" 
-                className="w-full h-full object-cover blur-lg saturate-50 brightness-75 animate-anime-zoom" 
+                className="w-full h-full object-cover blur-xs saturate-50 brightness-75 animate-anime-zoom" 
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-slate-950 animate-pulse">

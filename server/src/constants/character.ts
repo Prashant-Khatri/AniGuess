@@ -1,6 +1,6 @@
 import { ICharacter } from "../models/character.models.js";
 
-export const characterSeedData: Partial<ICharacter>[] = [
+export const characterSeedData: ICharacter[] = [
   // --- EASY DIFFICULTY (1-34) ---
   {
     characterName: "Naruto Uzumaki",

@@ -2,35 +2,30 @@
 import React, { useEffect, useState } from "react";
 import { IPlayers } from "./DisplayScreen";
 import { socket } from "@/lib/socket";
+import { useGameHandler } from "@/hooks/useGameHandler";
+import { useGameStore } from "@/store/game.store";
+import { useSocketListener } from "@/hooks/useSocketListener";
 
 interface RosterPanelProps {
   roomId: string;
-  currentSocketId: string;
-  isAdmin: boolean;
-  status: string; // "lobby" | "playing" | "intermission" | "ended"
+  // currentSocketId: string;
+  // isAdmin: boolean;
+  // status: string; // "lobby" | "playing" | "intermission" | "ended"
 }
 
-export default function RosterPanel({ roomId, currentSocketId, isAdmin, status }: RosterPanelProps) {
+export default function RosterPanel({ roomId}: RosterPanelProps) {
     console.log("GGGG")
-  const [players, setPlayers] = useState<IPlayers[]>([]);
+  const {isAdmin,status,players}=useGameStore()
+  const {roomStateUpdateListener}=useSocketListener(socket)
+  // const [players, setPlayers] = useState<IPlayers[]>([]);
+  const {handleKickAction,requestRoomData}=useGameHandler(socket)
 
   useEffect(() => {
     console.log("Andar use effect ke")
-    socket.on('room_state_update', (data: IPlayers[]) => {
-        console.log("Mila hai abhi ek : ",data)
-      // Automatically keep the roster synchronized on any socket updates
-      setPlayers(data);
-    });
+    roomStateUpdateListener()
     console.log("Kardiya emit")
-    socket.emit('request_room_data', { roomId });
-    return () => {
-      socket.off('room_state_update');
-    };
+    requestRoomData(roomId)
   }, []);
-
-  const handleKickAction = (targetSocketId: string) => {
-    socket.emit('kick_player', { roomId, targetSocketId });
-  };
 
   // Compute total dynamic stats to show on the header strip
   const connectedCount = players.filter(p => p.isOnline).length;
@@ -65,7 +60,7 @@ export default function RosterPanel({ roomId, currentSocketId, isAdmin, status }
           </div>
         ) : (
           players.map((player) => {
-            const isMe = player.socketId === currentSocketId;
+            const isMe = player.socketId === socket.id;
             
             return (
               <div 
@@ -141,7 +136,7 @@ export default function RosterPanel({ roomId, currentSocketId, isAdmin, status }
                   {/* Administrative Exclusion Kick Button (Shown exclusively to host, cant kick self) */}
                   {isAdmin && !isMe && (
                     <button
-                      onClick={() => handleKickAction(player.socketId)}
+                      onClick={() => handleKickAction(roomId,player.socketId)}
                       className="p-1.5 text-red-400/50 hover:text-red-400 bg-transparent hover:bg-red-500/10 rounded-lg border border-transparent hover:border-red-500/20 transition-all duration-200 md:opacity-0 group-hover/player:opacity-100 cursor-pointer"
                       title="Expatriate Member Node"
                     >

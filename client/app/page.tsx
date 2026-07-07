@@ -1,46 +1,21 @@
 'use client'
 import CreateRoomForm from "@/components/CreateRoomForm";
 import JoinRoomForm from "@/components/JoinRoomForm";
+import { useSocketListener } from "@/hooks/useSocketListener";
 import { socket } from "@/lib/socket";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  const {connectListener,disconnectListener}=useSocketListener(socket)
 
   //homepage
   //two form (create,join)
   //socket emit createRoom,joinRoom
   useEffect(() => {
-    console.log('🔄 Initializing Socket Gateway on Home Page...');
-
-    const onConnect = () => {
-      console.log("🟢 Connected to backend! My ID is:", socket.id);
-    };
-
-    const onDisconnect = () => {
-      console.log("🔴 Disconnected from backend server.");
-    };
-
-    // 1. Attach listeners BEFORE invoking the connection call
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-
-    // 2. Safely trigger connection manually if it hasn't connected yet
-    if (!socket.connected) {
-      socket.connect();
-    } else {
-      // If it's already connected (due to a hot-reload), run the log immediately
-      onConnect();
-    }
-
-    // 3. CLEANUP: Strip listeners when transitioning pages to avoid multi-print stacking
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      // NOTE: We do NOT call socket.disconnect() here so that the socket connection
-      // stays alive as the user moves from the home page to the dynamic game room page!
-    };
+    connectListener()
+    disconnectListener()
   }, []);
 
   return (

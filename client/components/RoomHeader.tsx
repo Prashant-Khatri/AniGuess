@@ -2,34 +2,23 @@
 import React from "react";
 import toast from "react-hot-toast";
 import GameLoopTimer from "./GameLoopTimer"; // Adjust the import path based on your folder structure
+import { RoomCodeCopiedToast } from "./Toast";
+import { useGameStore } from "@/store/game.store";
 
 interface RoomHeaderProps {
   roomId: string;
-  hostName: string;
-  hostAvatarUrl: string;
-  status: "waiting" | "playing" | string; // Track the current room matrix state
+  // hostName: string;
+  // hostAvatarUrl: string;
+  // status: "waiting" | "playing" | string; // Track the current room matrix state
 }
 
-export default function RoomHeader({ roomId, hostName, hostAvatarUrl, status }: RoomHeaderProps) {
+export default function RoomHeader({ roomId }: RoomHeaderProps) {
+  const {hostName,avatarUrl,status}=useGameStore()
   
   const copyRoomCode = () => {
     if (!roomId) return;
     navigator.clipboard.writeText(roomId);
-    
-    // Cyberpunk/Anime Terminal Custom Toast Notification
-    toast.custom((t) => (
-      <div
-        className={`${
-          t.visible ? 'animate-enter' : 'animate-leave'
-        } max-w-xs bg-slate-950/90 border border-dashed border-indigo-500/40 backdrop-blur-md px-4 py-2.5 rounded-xl shadow-2xl shadow-indigo-500/10 flex items-center space-x-2.5 pointer-events-auto font-mono text-xs`}
-      >
-        <span className="text-indigo-400 animate-pulse">📋</span>
-        <div className="text-slate-200 tracking-wide">
-          <span className="text-indigo-400 font-black uppercase tracking-widest mr-1">[LINK]:</span>
-          <span className="text-slate-200">Vector code synced to clipboard!</span>
-        </div>
-      </div>
-    ), { duration: 3000 });
+    RoomCodeCopiedToast()
   };
 
   const isPlaying = status === "playing";
@@ -87,9 +76,9 @@ export default function RoomHeader({ roomId, hostName, hostAvatarUrl, status }: 
         <div className="flex items-center space-x-2">
           {/* Avatar Container Matrix */}
           <div className="relative w-7 h-7 rounded-full border border-orange-500/30 overflow-hidden bg-slate-900 shadow-md">
-            {hostAvatarUrl ? (
+            {avatarUrl ? (
               <img 
-                src={hostAvatarUrl} 
+                src={avatarUrl} 
                 alt={hostName} 
                 className="object-cover w-full h-full" 
               />

@@ -1,6 +1,6 @@
 import {Schema,Document, model} from 'mongoose'
 
-export interface ICharacter extends Document {
+export interface ICharacter{
     characterName : string;
     animeNameEnglish : string;
     alternateName : string[];

@@ -1,4 +1,5 @@
 'use client'
+import { useGameHandler } from "@/hooks/useGameHandler";
 import { socket } from "@/lib/socket";
 import React, { useState } from "react";
 
@@ -9,6 +10,7 @@ interface GuessInputBarProps {
 export default function GuessInputBar({ roomId }: GuessInputBarProps) {
   const [guessText, setGuessText] = useState<string>('');
   const [isPending, setIsPending] = useState<boolean>(false);
+  const {submitGuess}=useGameHandler(socket)
 
   // Safely extract identifying client handle tokens from localStorage context lines
   const userId = typeof window !== 'undefined' ? localStorage.getItem('game_user_id') : null;
@@ -20,11 +22,7 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
     setIsPending(true);
 
     // Dispatches standard data packets down into handlePlayerGuess in game.controllers.ts
-    socket.emit('submit_guess', {
-      roomId,
-      userId, 
-      guess: guessText.trim()
-    });
+    submitGuess(roomId,userId,guessText)
 
     // Wipe text field buffer cleanly
     setGuessText('');

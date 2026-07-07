@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useRoomHandler } from '@/hooks/useRoomHandler';
 import { useRouter } from 'next/navigation';
 import { socket } from '@/lib/socket';
+import { useSocketListener } from '@/hooks/useSocketListener';
 
 // Declare instance outside the component render cycle to prevent multi-connection leaks
 
@@ -20,24 +21,12 @@ export default function CreateRoomForm() {
     const [avatarId, setAvatarId] = useState<number>(0);
     const { createRoom } = useRoomHandler(socket);
     const router = useRouter();
+    const {roomCreatedListener,joinErrorListener}=useSocketListener(socket)
 
     useEffect(() => {
         // Handle listeners on mount
-        socket.on('room_created', (data: { roomId: string }) => {
-            const { roomId } = data;
-            toast.success('Room Created successfully');
-            router.push(`/room/${roomId}`);
-        });
-
-        socket.on('join_error', (data: { message: string }) => {
-            const { message } = data;
-            toast.error(message);
-        });
-
-        return () => {
-            socket.off('room_created');
-            socket.off('join_error');
-        };
+        roomCreatedListener()
+        joinErrorListener()
     }, [router]);
 
     const submitHandler = (e: React.FormEvent) => {
