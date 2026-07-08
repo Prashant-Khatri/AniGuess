@@ -2,48 +2,58 @@
 import { useSocketListener } from "@/hooks/useSocketListener";
 import { socket } from "@/lib/socket";
 import { useGameStore } from "@/store/game.store";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 
 export default function GameLoopTimer() {
-  const {timerTickListener}=useSocketListener(socket)
-  const {remainingTime}=useGameStore()
-  // const [remainingTime, setRemainingTime] = useState<number>(30);
-  const maxTime = 30; // Used to compute the percentage layout radius delta
+  const { timerTickListener } = useSocketListener(socket);
+  const { remainingTime, guessTime } = useGameStore();
+
+  // 1. FIX: Dynamically determine if the store is holding a stale state.
+  // If remainingTime matches the static store default but your room configuration 
+  // has a custom guessTime, use guessTime immediately to prevent the visual jump.
+  const displayTime = remainingTime === 20 && guessTime !== 20 ? guessTime : remainingTime;
+  const maxTime = guessTime || 20; 
 
   useEffect(() => {
-    timerTickListener()
-  }, []);
+    // Bind the timer tick listener and capture its cleanup function
+    const cleanTimerTick = timerTickListener();
+
+    // Strip the listener on unmount to prevent double countdown ticks
+    return () => {
+      if (cleanTimerTick) cleanTimerTick();
+    };
+  }, []); // Secure empty array ensures this binds exactly once on mount
 
   // Compute percentage for the circular svg dashOffset calculation
-  const percentage = Math.max(0, Math.min(100, (remainingTime / maxTime) * 100));
+  const percentage = Math.max(0, Math.min(100, (displayTime / maxTime) * 100));
   const strokeDashoffset = 251.2 - (251.2 * percentage) / 100;
 
   // Determine threat color matrix vectors based on threshold limits
-  const isCritical = remainingTime <= 5;
-  const isWarning = remainingTime <= 10 && remainingTime > 5;
+  const isCritical = displayTime <= 5;
+  const isWarning = displayTime <= 10 && displayTime > 5;
 
-  const glowColor = isCritical 
-    ? "stroke-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" 
-    : isWarning 
-      ? "stroke-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
+  const glowColor = isCritical
+    ? "stroke-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+    : isWarning
+      ? "stroke-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]"
       : "stroke-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]";
 
-  const textColor = isCritical 
-    ? "text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.4)]" 
-    : isWarning 
-      ? "text-amber-500" 
+  const textColor = isCritical
+    ? "text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.4)]"
+    : isWarning
+      ? "text-amber-500"
       : "text-emerald-400";
 
   return (
     <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center backdrop-blur-md shadow-xl relative overflow-hidden group">
-      
+
       {/* Dynamic Warning Scanning Line Pattern */}
       {isCritical && (
         <div className="absolute inset-0 bg-red-950/10 pointer-events-none animate-pulse border border-red-500/20 rounded-2xl" />
       )}
 
       <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-between px-2">
-        
+
         {/* Left Side: System Metrics Status Label */}
         <div className="flex flex-col text-center sm:text-left space-y-1">
           <span className="text-[10px] font-mono font-black tracking-widest text-slate-500 uppercase">
@@ -79,7 +89,7 @@ export default function GameLoopTimer() {
           {/* Absolute Centered Countdown Text Element */}
           <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
             <span className={`font-mono text-2xl font-black tracking-tighter ${textColor} ${isCritical ? 'animate-ping opacity-70 absolute scale-75' : ''}`}>
-              {remainingTime}
+              {displayTime}
             </span>
             <span className="text-[7px] font-mono font-black text-slate-500 tracking-widest uppercase mt-[-2px]">
               SEC

@@ -13,11 +13,12 @@ export const useGameHandler = (socket: Socket) => {
             guess: guessText.trim()
         });
     }
+
     const startGame=(roomId : string)=>{
         console.log("Inside start game")
         socket.emit("start_game", { roomId });
     }
-    const handlePlayAgain = (roomId:string) => socket.emit('restart_game', { roomId });
+    const handlePlayAgain = (roomId:string) => socket.emit('play_again', { roomId });
     const handleDisbandRoom = (roomId : string) => socket.emit('disband_room', { roomId });
     const handleLeaveRoom = (roomId : string) => {
         socket.emit('leave_room', { roomId });

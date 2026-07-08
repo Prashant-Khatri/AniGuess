@@ -1,7 +1,7 @@
 'use client'
 import { useGameHandler } from "@/hooks/useGameHandler";
 import { socket } from "@/lib/socket";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 interface GuessInputBarProps {
   roomId: string;
@@ -10,7 +10,10 @@ interface GuessInputBarProps {
 export default function GuessInputBar({ roomId }: GuessInputBarProps) {
   const [guessText, setGuessText] = useState<string>('');
   const [isPending, setIsPending] = useState<boolean>(false);
-  const {submitGuess}=useGameHandler(socket)
+  const { submitGuess } = useGameHandler(socket);
+  
+  // 1. Initialize reference pointer to keep tabs on the raw DOM element
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Safely extract identifying client handle tokens from localStorage context lines
   const userId = typeof window !== 'undefined' ? localStorage.getItem('game_user_id') : null;
@@ -22,13 +25,20 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
     setIsPending(true);
 
     // Dispatches standard data packets down into handlePlayerGuess in game.controllers.ts
-    submitGuess(roomId,userId,guessText)
+    submitGuess(roomId, userId, guessText);
 
     // Wipe text field buffer cleanly
     setGuessText('');
 
+    // 2. Force the cursor back inside the input element instantly 
+    inputRef.current?.focus();
+
     // Release locking mechanism after a short interface tick delay
-    setTimeout(() => setIsPending(false), 400);
+    setTimeout(() => {
+      setIsPending(false);
+      // Secondary fallback focus to handle situations where key-down delays occur
+      inputRef.current?.focus();
+    }, 400);
   };
 
   return (
@@ -44,19 +54,22 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
           </span>
 
           <input
+            ref={inputRef} // 3. Attach layout reference anchor here
             type="text"
             value={guessText}
             onChange={(e) => setGuessText(e.target.value)}
-            disabled={isPending}
             placeholder={isPending ? "TRANSMITTING VECTOR DATA..." : "TYPE CHARACTER IDENTITY GUESS..."}
-            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500/50 rounded-xl pl-9 pr-4 py-3.5 font-mono text-xs text-slate-100 placeholder-slate-600 outline-none transition-all duration-200 uppercase tracking-wider shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500/50 rounded-xl pl-9 pr-4 py-3.5 font-mono text-xs text-slate-100 placeholder-slate-600 outline-none transition-all duration-200 uppercase tracking-wider shadow-inner"
           />
 
           {/* Quick Clear Indicator Line Utility (Visible when input has values text strings) */}
           {guessText && !isPending && (
             <button
               type="button"
-              onClick={() => setGuessText('')}
+              onClick={() => {
+                setGuessText('');
+                inputRef.current?.focus(); // Keep cursor when hitting manual clear too
+              }}
               className="absolute right-3 text-slate-600 hover:text-slate-400 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 cursor-pointer"
             >
               ESC

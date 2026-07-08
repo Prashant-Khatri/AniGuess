@@ -15,22 +15,21 @@ export interface IPlayers {
 export const createRoom = (io: Server, socket: Socket) => {
     socket.on('create_room', async (data: {
         userName: string;
-        totalRounds: number;
         avatarId: number;
         userId: string
     }) => {
         try {
             console.log('Inside createroom socket backend')
-            const { userName, totalRounds, avatarId, userId } = data
-            if (!userName || !totalRounds || !avatarId) {
+            const { userName, avatarId, userId } = data
+            if (!userName || !avatarId) {
                 return socket.emit('join_error', { message: 'Fill all the required fields' })
             }
             const roomId = Math.floor(Math.random() * 1000000).toString()
             await redis.hset(`room:${roomId}`, {
                 roomId,
-                totalRounds: totalRounds.toString(),
-                currentRound: '0',
-                currentTurn: '0',
+                totalRounds: '3',
+                currentRound: '',
+                currentTurn: '',
                 adminId: socket.id,
                 status: 'lobby',
                 currentCharacterName: '',
@@ -41,7 +40,10 @@ export const createRoom = (io: Server, socket: Socket) => {
                 hint2: '',
                 hint1Revealed: 'false', // ◄ Good practice to make these explicit strings too!
                 hint2Revealed: 'false',
-                timerEndsAt: '0'
+                timerEndsAt: '',
+                imagesInOneRound: '5',
+                guessTime: '20',
+                maxPlayers: '8'
             })
             await redis.expire(`room:${roomId}`, 7200);
             const hostProfile: IPlayers = {
@@ -82,7 +84,7 @@ export const joinRoom = (io: Server, socket: Socket) => {
             if (!Boolean(roomExists)) {
                 return socket.emit('join_error', { message: 'Room Id is not valid' })
             }
-            const roomStatus=await redis.hget(`room:${roomId}`,'status')
+            const roomStatus = await redis.hget(`room:${roomId}`, 'status')
             if (roomStatus !== 'lobby') {
                 return socket.emit('join_error', { message: 'Cannot join this room. The match has already started!' });
             }
@@ -93,7 +95,19 @@ export const joinRoom = (io: Server, socket: Socket) => {
             if (avatarTaken === 0) {
                 return socket.emit('join_error', { message: 'Avatar is already taken' })
             }
-            
+            const maxPlayers = await redis.hget(`room:${roomId}`, 'maxPlayers');
+            const players = await redis.hgetall(`room:${roomId}:players`);
+
+            // 1. Handle case where room doesn't exist yet (players will be empty/null)
+            const currentPlayerCount = players ? Object.keys(players).length : 0;
+
+            // 2. Convert maxPlayers to a number (defaulting to 0 or a fallback if null)
+            const parsedMaxPlayers = Number(maxPlayers) || 0;
+
+            // 3. Compare numbers
+            if (currentPlayerCount >= parsedMaxPlayers) {
+                return socket.emit('join_error', { message: 'Room Is Full' });
+            }
             const joinerProfile: IPlayers = {
                 userName,
                 avatarId,
@@ -113,6 +127,8 @@ export const joinRoom = (io: Server, socket: Socket) => {
                 roomId
             });
             io.to(roomId).emit('room_state_update', playersInRoom)
+            // 🪐 Emits 'player_joined' to all clients in 'roomId' EXCEPT the sender
+            socket.to(roomId).emit('player_joined', { userName });
         } catch (error) {
             if (error instanceof Error) {
                 console.log('Error in joining room', error.message)
@@ -125,10 +141,12 @@ export const joinRoom = (io: Server, socket: Socket) => {
 export const changeRoomConfig = (io: Server, socket: Socket) => {
     socket.on('change_config', async (data: {
         roomId: string;
-        rounds: number
+        key: string;
+        value: number;
     }) => {
         try {
-            const { roomId, rounds } = data
+            const { roomId, key, value } = data
+            console.log("Chnage config listener (backend) : ",roomId,key,value)
             const roomKey = `room:${roomId}`
             //is exits
             const isExists = await redis.exists(roomKey)
@@ -137,18 +155,24 @@ export const changeRoomConfig = (io: Server, socket: Socket) => {
             }
             //check is admin
             const adminSocketId = await redis.hget(roomKey, 'adminId')
-            const roomStatus = await redis.hget(roomKey, 'status')
             if (adminSocketId !== socket.id) {
-                return socket.emit('config_error', { message: 'Only host can the room configuration' })
+                return socket.emit('config_error', { message: 'Only host can change the room configuration' })
             }
+            const roomStatus = await redis.hget(roomKey, 'status')
             //check room status 
-            if (roomStatus === 'playing' || roomStatus === 'intermission') {
+            if (roomStatus !== 'lobby') {
                 return socket.emit('config_error', { message: 'Cannot change the config mid-game' })
             }
             //change rounds
-            await redis.hset(roomKey, 'totalRounds', rounds.toString())
+            await redis.hset(roomKey, key, value.toString())
             //emit config_updated
-            return io.to(roomId).emit('config_updated', { totalRounds: rounds })
+            console.log("Config updated emiiter (backend) : ",key,value)
+            io.to(roomId).emit('config_updated', { key, value })
+            return socket.to(roomId).emit('feed_message',{
+                userName: "SYSTEM",
+                systemMsg: true,
+                message: `${key} set to ${value}`
+            })
         } catch (error) {
             if (error instanceof Error) {
                 console.log('Error in changing config', error.message)

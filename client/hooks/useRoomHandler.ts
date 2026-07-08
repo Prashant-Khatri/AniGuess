@@ -4,15 +4,20 @@ import { useCallback } from 'react';
 
 export const useRoomHandler = (socket: Socket) => {
   
-  const createRoom = useCallback((userName: string, totalRounds: number, avatarId: number, userId: string) => {
+  const createRoom = useCallback((userName: string, avatarId: number, userId: string) => {
     if (!socket.connected) socket.connect();
-    socket.emit('create_room', { userName, totalRounds, avatarId, userId });
+    socket.emit('create_room', { userName, avatarId, userId });
   }, [socket]);
 
   const joinRoom = useCallback((userName: string, roomId: string, avatarId: number, userId: string) => {
     if (!socket.connected) socket.connect();
     socket.emit('join_room', { userName, roomId, avatarId, userId });
   }, [socket]);
+  
+  const changeRoomConfig=({key,value,roomId}:{key : string;value : number,roomId : string})=>{
+    console.log("Inside change room config emitter (frontend): ",key,value,roomId)
+    socket.emit('change_config',{key,value,roomId})
+  }
 
-  return { createRoom, joinRoom };
+  return { createRoom, joinRoom ,changeRoomConfig};
 };

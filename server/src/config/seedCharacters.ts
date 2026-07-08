@@ -5,7 +5,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 async function seedTwelveMongoCharacters() {
-  const MONGO_URI = "mongodb://prashantkhatri20170215974_db_user:4rSfGqdP7InHL00X@ac-eqgdbe7-shard-00-00.itzddbp.mongodb.net:27017,ac-eqgdbe7-shard-00-01.itzddbp.mongodb.net:27017,ac-eqgdbe7-shard-00-02.itzddbp.mongodb.net:27017/?ssl=true&replicaSet=atlas-841eu0-shard-0&authSource=admin&appName=Cluster0"
+  const MONGO_URI = process.env.MONGODB_URI
 
   try {
     console.log("📡 Connecting to MongoDB Database Matrix...");

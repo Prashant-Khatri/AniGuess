@@ -13,29 +13,37 @@ interface RosterPanelProps {
   // status: string; // "lobby" | "playing" | "intermission" | "ended"
 }
 
-export default function RosterPanel({ roomId}: RosterPanelProps) {
-    console.log("GGGG")
-  const {isAdmin,status,players}=useGameStore()
-  const {roomStateUpdateListener}=useSocketListener(socket)
+export default function RosterPanel({ roomId }: RosterPanelProps) {
+  console.log("GGGG")
+  const { isAdmin, status, players } = useGameStore()
+  const { roomStateUpdateListener } = useSocketListener(socket)
   // const [players, setPlayers] = useState<IPlayers[]>([]);
-  const {handleKickAction,requestRoomData}=useGameHandler(socket)
+  const { handleKickAction, requestRoomData } = useGameHandler(socket)
 
   useEffect(() => {
-    console.log("Andar use effect ke")
-    roomStateUpdateListener()
-    console.log("Kardiya emit")
-    requestRoomData(roomId)
-  }, []);
+    if (!roomId) return;
+
+    // Bind the listener and capture its cleanup function
+    const cleanRoomStateUpdate = roomStateUpdateListener();
+
+    // Fire your data fetch request to the server matrix
+    requestRoomData(roomId);
+
+    // Clean up the subscription on unmount to prevent state sync duplications
+    return () => {
+      if (cleanRoomStateUpdate) cleanRoomStateUpdate();
+    };
+  }, [roomId]); // Bound to roomId so it securely refetches if the room changes
 
   // Compute total dynamic stats to show on the header strip
   const connectedCount = players.filter(p => p.isOnline).length;
 
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col backdrop-blur-md shadow-xl min-h-[380px] max-h-[420px] relative overflow-hidden group">
-      
+
       {/* Decorative Left Neon Border Strip */}
       <div className={`absolute top-0 left-0 h-full w-[3px] transition-colors duration-500
-        ${status === 'lobby' ? 'bg-indigo-500' : status === 'playing' ? 'bg-emerald-500' : 'bg-amber-500'}`} 
+        ${status === 'lobby' ? 'bg-indigo-500' : status === 'playing' ? 'bg-emerald-500' : 'bg-amber-500'}`}
       />
 
       {/* Roster Header */}
@@ -44,9 +52,9 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
           👥 Node Roster <span className="text-[10px] text-slate-500 font-normal">({connectedCount}/{players.length})</span>
         </h3>
         <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded border uppercase tracking-wider
-          ${status === 'lobby' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 
-            status === 'playing' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 animate-pulse' : 
-            'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}
+          ${status === 'lobby' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+            status === 'playing' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 animate-pulse' :
+              'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}
         >
           {status} phase
         </span>
@@ -61,9 +69,9 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
         ) : (
           players.map((player) => {
             const isMe = player.socketId === socket.id;
-            
+
             return (
-              <div 
+              <div
                 key={player.socketId}
                 className={`flex items-center justify-between p-2.5 rounded-xl border transition-all duration-300 relative bg-slate-950/40 group/player
                   ${player.hasGuessed && status === 'playing' ? 'border-emerald-500/30 shadow-md shadow-emerald-500/5 bg-emerald-950/5' : 'border-slate-900'}
@@ -72,10 +80,10 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
                 {/* Player Profile Info Segment */}
                 <div className="flex items-center space-x-3 min-w-0">
                   <div className="relative w-9 h-9 rounded-full border border-slate-800 overflow-hidden bg-slate-900 flex-shrink-0">
-                    <img 
-                      src={`https://api.dicebear.com/7.x/bottts/svg?seed=${player.avatarId}`} 
-                      alt={player.userName} 
-                      className="object-cover w-full h-full" 
+                    <img
+                      src={`https://api.dicebear.com/7.x/bottts/svg?seed=${player.avatarId}`}
+                      alt={player.userName}
+                      className="object-cover w-full h-full"
                     />
                     {/* Active Gameplay Guess Success Confirmation Overlay */}
                     {player.hasGuessed && status === 'playing' && (
@@ -84,7 +92,7 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className={`font-mono font-bold text-xs truncate max-w-[120px] uppercase tracking-wide ${isMe ? 'text-indigo-400 font-black' : 'text-slate-200'}`}>
@@ -124,8 +132,8 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
                   {/* Status Badges conditional display */}
                   {status === 'playing' && (
                     <span className={`text-[8px] uppercase font-mono font-black tracking-wider px-1.5 py-0.5 border rounded-md transition-colors
-                      ${player.hasGuessed 
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                      ${player.hasGuessed
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                         : 'bg-slate-900 text-slate-600 border-slate-800 animate-pulse'
                       }`}
                     >
@@ -136,7 +144,7 @@ export default function RosterPanel({ roomId}: RosterPanelProps) {
                   {/* Administrative Exclusion Kick Button (Shown exclusively to host, cant kick self) */}
                   {isAdmin && !isMe && (
                     <button
-                      onClick={() => handleKickAction(roomId,player.socketId)}
+                      onClick={() => handleKickAction(roomId, player.socketId)}
                       className="p-1.5 text-red-400/50 hover:text-red-400 bg-transparent hover:bg-red-500/10 rounded-lg border border-transparent hover:border-red-500/20 transition-all duration-200 md:opacity-0 group-hover/player:opacity-100 cursor-pointer"
                       title="Expatriate Member Node"
                     >

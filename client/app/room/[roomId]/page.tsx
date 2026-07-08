@@ -51,9 +51,6 @@ export default function RoomPage() {
   
   // const currentSocketId = socket.id;
   const {
-    hostName,
-    avatarUrl,
-    adminId,
     isAdmin,
     status,
     intermissionData,
@@ -74,7 +71,7 @@ export default function RoomPage() {
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
   // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
   const {handleDisbandRoom,handleLeaveRoom,handlePlayAgain}=useGameHandler(socket)
-  const {gameEndedListener,gameErrorListener,gameStartedListener,roundInitListener,roundIntermissionStartListener,kickedFromRoomListener}=useSocketListener(socket)
+  const {gameEndedListener,gameErrorListener,gameStartedListener,roundInitListener,roundIntermissionStartListener,kickedFromRoomListener,playerJoined}=useSocketListener(socket)
 
   useEffect(() => {
     if (!roomId) return;
@@ -83,13 +80,23 @@ export default function RoomPage() {
   }, [roomId, socket.id]);
 
   useEffect(() => {
-    gameErrorListener()
-    kickedFromRoomListener()
-    roundInitListener()
-    gameStartedListener()
-    roundIntermissionStartListener()
-    gameEndedListener()
-  }, [router]);
+    const cleanError=gameErrorListener()
+    const cleanKicked=kickedFromRoomListener()
+    const cleanRoundInit=roundInitListener()
+    const cleanGameStarted=gameStartedListener()
+    const cleanIntermission=roundIntermissionStartListener()
+    const cleanGameEnded=gameEndedListener()
+    const cleanPlayerJoined=playerJoined()
+    return ()=>{
+      if (cleanError) cleanError();
+      if (cleanKicked) cleanKicked();
+      if (cleanRoundInit) cleanRoundInit();
+      if (cleanGameStarted) cleanGameStarted();
+      if (cleanIntermission) cleanIntermission();
+      if (cleanGameEnded) cleanGameEnded();
+      if (cleanPlayerJoined) cleanPlayerJoined()
+    }
+  }, [roomId]);
 
   // Host Action Control Handlers
 

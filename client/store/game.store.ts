@@ -43,7 +43,15 @@ interface GameStore {
   setFeedMessagesCollection: (messages: FeedMessage[] | ((prev: FeedMessage[]) => FeedMessage[])) => void;
   players: IPlayers[];
   setPlayers: (players: IPlayers[]) => void;
-  getAdminIdandAvatar : (targetRoomId: string)=>Promise<void>
+  getAdminIdandAvatar : (targetRoomId: string)=>Promise<void>,
+  totalRounds : number;
+  imagesInOneRound : number;
+  maxPlayers : number;
+  guessTime : number;
+  setTotalRounds : (rounds : number)=>void;
+  setImagesInOneRound : (images : number)=>void;
+  setGuessTime : (time : number)=>void;
+  setMaxPlayers : (players : number)=>void
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -60,11 +68,15 @@ export const useGameStore = create<GameStore>()((set) => ({
   imageUrl: "",
   hint1: "",
   hint2: "",
-  remainingTime: 30,
+  remainingTime: 20,
   takenAvatars: [],
   roomError: "",
   feedMessagesCollection: [],
   players: [],
+  totalRounds : 3,
+  maxPlayers : 8,
+  guessTime : 20,
+  imagesInOneRound : 5,
 
   // --- Actions / Setters ---
   setHostName: (name) => set({ hostName: name }),
@@ -100,6 +112,10 @@ export const useGameStore = create<GameStore>()((set) => ({
     })),
     
   setPlayers: (players) => set({ players }),
+  setGuessTime : (time : number)=>set({guessTime : time}),
+  setImagesInOneRound : (images : number)=>set({imagesInOneRound : images}),
+  setMaxPlayers : (players : number)=>set({maxPlayers : players}),
+  setTotalRounds : (rounds : number)=>set({totalRounds : rounds}),
 
   // --- Async Operations ---
   checkTakenAvatars: async (roomId: string) => {

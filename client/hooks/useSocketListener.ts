@@ -1,7 +1,7 @@
 import { EndGameData, IntermissionData } from "@/app/room/[roomId]/page";
 import { IPlayers } from "@/components/DisplayScreen";
 import { FeedMessageData } from "@/components/LiveFeedPanel";
-import { GameErrorToast, GameStartedToast, KickedFromRoomToast, SystemMessageToast } from "@/components/Toast";
+import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayerJoinedToast, RoomCreatedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -21,7 +21,12 @@ export const useSocketListener = (socket: Socket) => {
         setEndGameData,
         setFeedMessagesCollection,
         setRemainingTime,
-        setPlayers
+        setPlayers,
+        setTotalRounds,
+        setGuessTime,
+        setImagesInOneRound,
+        setMaxPlayers,
+        guessTime
     } = useGameStore()
     // setStatus('playing');
     // setIntermissionData(null);
@@ -86,11 +91,13 @@ export const useSocketListener = (socket: Socket) => {
         }) => {
             const { currentRound, imageUrl } = data;
             setStatus('playing');
+            setRemainingTime(guessTime)
             setIntermissionData(null);
             setRound(currentRound);
             setImageUrl(imageUrl);
             setHint1("");
             setHint2("");
+            setFeedMessagesCollection([])
         });
         return () => {
             socket.off('round_init')
@@ -115,7 +122,7 @@ export const useSocketListener = (socket: Socket) => {
             // Auto flip intermission views from Answer Canvas to Turn Scores after 4.5 seconds
             const phaseTimer = setTimeout(() => {
                 setShowAnswerPhase(false);
-            }, 4500);
+            }, 4000);
 
             return () => clearTimeout(phaseTimer);
         });
@@ -157,7 +164,7 @@ export const useSocketListener = (socket: Socket) => {
     const roomCreatedListener = () => {
         socket.on('room_created', (data: { roomId: string }) => {
             const { roomId } = data;
-            toast.success('Room Created successfully');
+            RoomCreatedToast()
             router.push(`/room/${roomId}`);
         });
         return () => {
@@ -167,28 +174,36 @@ export const useSocketListener = (socket: Socket) => {
     const joinErrorListener = () => {
         socket.on('join_error', (data: { message: string }) => {
             const { message } = data;
-            toast.error(message);
+            JoinErrorToast(message)
         });
         return () => {
             socket.off('join_error');
         };
     }
+    // inside hooks/useSocketListener.ts
     const feedMessageListener = () => {
         socket.on('feed_message', (data: FeedMessageData) => {
             const { userName, systemMsg, message } = data;
+            const uniqueMessageId = `${Date.now()}-${Math.random()}`;
 
-            if (!systemMsg) {
-                // Appends new transmissions in latest-first format (newest at the top)
-                setFeedMessagesCollection((prev) => [
+            // Functional state check prevents appending duplications during fast processing ticks
+            setFeedMessagesCollection((prev) => {
+                // Safeguard check against double-processing state buffers
+                // if (prev.some(m => m.userName === userName && m.guesss === message && Date.now() - parseFloat(m.id) < 100)) {
+                //     return prev;
+                // }
+                return [
                     {
-                        id: `${Date.now()}-${Math.random()}`,
+                        id: uniqueMessageId,
                         userName,
                         guesss: message
                     },
                     ...prev,
-                ]);
-            } else {
-                SystemMessageToast(message)
+                ];
+            });
+
+            if (systemMsg) {
+                SystemMessageToast(message);
             }
         });
         return () => {
@@ -205,6 +220,71 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('room_state_update');
         };
     }
+    const joinSuccessListener = () => {
+        socket.on('join_success', (data: { roomId: string }) => {
+            JoinSuccessToast()
+            router.push(`/room/${data.roomId.toUpperCase()}`);
+        });
+        return () => {
+            socket.off('join_success');
+        };
+    }
+    // const joinErrorListener=()=>{
+    //     socket.on('join_error', (data: { message: string }) => {
+    //         toast.error(data.message);
+    //     });
+    // }
+
+    const configUpdatedListener = () => {
+        socket.on('config_updated', (data: {
+            key: string;
+            value: number
+        }) => {
+            const { key, value } = data
+            console.log('Inside config updated listener (frontend) : ', key, value)
+            if (key === 'totalRounds') {
+                setTotalRounds(value)
+            }
+            if (key === 'maxPlayers') {
+                setMaxPlayers(value)
+            }
+            if (key === 'guessTime') {
+                setRemainingTime(value)
+                setGuessTime(value)
+            }
+            if (key === 'imagesInOneRound') {
+                setImagesInOneRound(value)
+            }
+        })
+        return () => {
+            socket.off('config_updated')
+        }
+    }
+    const playerJoined=()=>{
+        socket.on('player_joined',(data:{userName : string})=>{
+            const {userName}=data
+            const uniqueMessageId = `${Date.now()}-${Math.random()}`;
+            const message=`${userName} joined the game`
+            setFeedMessagesCollection((prev) => {
+                // Safeguard check against double-processing state buffers
+                // if (prev.some(m => m.userName === userName && m.guesss === message && Date.now() - parseFloat(m.id) < 100)) {
+                //     return prev;
+                // }
+                return [
+                    {
+                        id: uniqueMessageId,
+                        userName : 'SYSTEM',
+                        guesss: message
+                    },
+                    ...prev,
+                ];
+            });
+            PlayerJoinedToast(message)
+        })
+        return ()=>{
+            socket.off('player_joined')
+        }
+    }
     return {
         connectListener,
         disconnectListener,
@@ -219,6 +299,9 @@ export const useSocketListener = (socket: Socket) => {
         roomCreatedListener,
         joinErrorListener,
         feedMessageListener,
-        roomStateUpdateListener
+        roomStateUpdateListener,
+        joinSuccessListener,
+        configUpdatedListener,
+        playerJoined
     }
 }

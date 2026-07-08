@@ -8,15 +8,22 @@ import { useEffect, useState } from "react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
-  const {connectListener,disconnectListener}=useSocketListener(socket)
+  const { connectListener, disconnectListener } = useSocketListener(socket)
 
   //homepage
   //two form (create,join)
   //socket emit createRoom,joinRoom
   useEffect(() => {
-    connectListener()
-    disconnectListener()
-  }, []);
+    // Bind the connection listeners and capture their cleanup functions
+    const cleanConnect = connectListener();
+    const cleanDisconnect = disconnectListener();
+
+    // Execute the cleanups when the component unmounts
+    return () => {
+      if (cleanConnect) cleanConnect();
+      if (cleanDisconnect) cleanDisconnect();
+    };
+  }, []); // Empty array ensures this binds securely ONLY once on mount
 
   return (
     <main className="min-h-screen w-full bg-slate-950 flex items-center justify-center p-4 md:p-8 relative overflow-hidden selection:bg-indigo-500 selection:text-white">
@@ -42,7 +49,7 @@ export default function Home() {
               className="object-cover object-center"
             />
           </div>
-          
+
           {/* Top Gradient Linear Overlay Filter Mask */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent z-10 pointer-events-none" />
 

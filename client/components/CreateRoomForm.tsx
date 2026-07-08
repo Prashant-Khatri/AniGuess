@@ -16,22 +16,27 @@ import { useSocketListener } from '@/hooks/useSocketListener';
 
 export default function CreateRoomForm() {
     const [userName, setUserName] = useState<string>("");
-    const [rounds, setRounds] = useState<number[]>([3]);
     const [errorMessage, setErrorMessage] = useState<string>("");
     const [avatarId, setAvatarId] = useState<number>(0);
     const { createRoom } = useRoomHandler(socket);
     const router = useRouter();
-    const {roomCreatedListener,joinErrorListener}=useSocketListener(socket)
+    const { roomCreatedListener, joinErrorListener } = useSocketListener(socket)
 
     useEffect(() => {
-        // Handle listeners on mount
-        roomCreatedListener()
-        joinErrorListener()
-    }, [router]);
+        // Bind listeners and capture their cleanup functions
+        const cleanRoomCreated = roomCreatedListener();
+        const cleanJoinError = joinErrorListener();
+
+        // Clean up subscriptions on unmount/re-run to prevent duplicate toasts
+        return () => {
+            if (cleanRoomCreated) cleanRoomCreated();
+            if (cleanJoinError) cleanJoinError();
+        };
+    }, []); // Safe empty dependency array so it only initializes once on mount
 
     const submitHandler = (e: React.FormEvent) => {
         e.preventDefault(); // ◄ Prevents page reload
-        
+
         if (userName.trim() === "") {
             setErrorMessage('Username can\'t be empty');
             return;
@@ -48,14 +53,14 @@ export default function CreateRoomForm() {
             localStorage.setItem('game_user_id', userId);
         }
 
-        createRoom(userName, rounds[0], avatarId, userId);
+        createRoom(userName, avatarId, userId);
     };
 
     return (
         <form onSubmit={submitHandler} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-orange-500/30 rounded-2xl shadow-xl shadow-orange-500/5 relative backdrop-blur-md overflow-hidden group">
             {/* Top Decorative Cyberpunk/Anime Border Accent */}
             <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-orange-500 to-transparent" />
-            
+
             {/* Username Input Field Block */}
             <Field className="space-y-1.5">
                 <div className="flex justify-between items-center">
@@ -73,8 +78,8 @@ export default function CreateRoomForm() {
                         if (e.target.value !== "") setErrorMessage("");
                     }}
                     className={`bg-slate-900/60 border-2 uppercase font-mono tracking-wide placeholder:text-slate-600 text-sm text-white focus:ring-0 rounded-xl transition-all duration-200
-                        ${errorMessage !== '' && userName === '' 
-                            ? 'border-red-500 focus:border-red-500 shadow-md shadow-red-500/10' 
+                        ${errorMessage !== '' && userName === ''
+                            ? 'border-red-500 focus:border-red-500 shadow-md shadow-red-500/10'
                             : 'border-slate-800 focus:border-orange-500 focus:shadow-md focus:shadow-orange-500/10'
                         }`}
                 />
@@ -86,32 +91,6 @@ export default function CreateRoomForm() {
                         ⚠️ {errorMessage}
                     </FieldError>
                 )}
-            </Field>
-
-            {/* Match Rounds Configurations */}
-            <Field className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <FieldLabel htmlFor="input-field-rounds" className="text-xs uppercase font-extrabold tracking-wider text-slate-300">
-                        ⚔️ Combat Rounds
-                    </FieldLabel>
-                    <span className="text-sm font-black font-mono bg-orange-500/10 text-orange-400 px-2.5 py-0.5 rounded-md border border-orange-500/30 shadow-sm animate-pulse">
-                        {rounds[0]} MATCHES
-                    </span>
-                </div>
-                <div className="py-2 px-1">
-                    <Slider 
-                        id='input-field-rounds' 
-                        max={10} 
-                        min={2} 
-                        value={rounds} 
-                        step={1} 
-                        onValueChange={setRounds}
-                        className="cursor-pointer tracking-wide uppercase accent-orange-500"
-                    />
-                </div>
-                <FieldDescription className="text-[11px] font-medium text-slate-500">
-                    Defines the total unique character sequences to pop out of the Redis database queue.
-                </FieldDescription>
             </Field>
 
             {/* Dynamic Card Selection Gallery Wrapper Container */}
@@ -126,12 +105,12 @@ export default function CreateRoomForm() {
                         const isGreyedOut = isAnySelected && !isSelected;
 
                         return (
-                            <Card 
-                                key={a.id} 
+                            <Card
+                                key={a.id}
                                 onClick={() => setAvatarId(a.id)}
                                 className={`cursor-pointer transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
-                                    ${isSelected 
-                                        ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-lg shadow-orange-500/10 z-10' 
+                                    ${isSelected
+                                        ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-lg shadow-orange-500/10 z-10'
                                         : 'border-slate-900 bg-slate-900/40 hover:border-slate-700 hover:scale-[1.02]'
                                     }
                                     ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
@@ -150,11 +129,11 @@ export default function CreateRoomForm() {
                                 <CardContent className="flex justify-center p-2.5 bg-transparent">
                                     <div className={`relative rounded-full p-0.5 transition-all duration-300 border
                                         ${isSelected ? 'border-orange-400 scale-110 shadow-sm shadow-orange-400/20' : 'border-slate-800'}`}>
-                                        <Image 
-                                            src={a.imageUrl} 
-                                            alt={a.name} 
-                                            height={44} 
-                                            width={44} 
+                                        <Image
+                                            src={a.imageUrl}
+                                            alt={a.name}
+                                            height={44}
+                                            width={44}
                                             className="rounded-full bg-slate-950 object-cover"
                                         />
                                     </div>
@@ -166,8 +145,8 @@ export default function CreateRoomForm() {
             </div>
 
             {/* Interactive Neon Dispatch Call Button Trigger */}
-            <Button 
-                type='submit' 
+            <Button
+                type='submit'
                 disabled={!userName.trim() || avatarId === 0}
                 className="w-full py-6 mt-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 disabled:from-slate-900 disabled:to-slate-900 text-slate-950 disabled:text-slate-600 font-black tracking-widest text-sm uppercase rounded-xl border border-orange-400/20 hover:border-orange-400/40 shadow-lg hover:shadow-orange-500/20 transition-all duration-300 transform active:scale-95 cursor-pointer"
             >
