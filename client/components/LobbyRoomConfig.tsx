@@ -100,7 +100,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-purple-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-purple-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
-            {[3, 5, 7, 10].map((num) => (
+            {[1,3, 5, 7, 10].map((num) => (
               <option key={num} value={num}>{num} Rounds</option>
             ))}
           </select>
@@ -142,7 +142,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-rose-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-rose-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
-            {[3, 5, 8, 10, 12].map((num) => (
+            {[1,3, 5, 8, 10, 12].map((num) => (
               <option key={num} value={num}>{num} Characters</option>
             ))}
           </select>

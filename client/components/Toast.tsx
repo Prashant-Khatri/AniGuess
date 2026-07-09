@@ -185,3 +185,75 @@ export const PlayerJoinedToast = (message: string) => {
     </div>
   ), { position: "top-center" });
 };
+
+
+export const PlayAgainSuccessToast = () => {
+  toast.custom((t) => (
+    <div
+      className={`${
+        t.visible ? "animate-enter" : "animate-leave"
+      } max-w-md w-full bg-slate-950/95 backdrop-blur-md border border-emerald-500/40 shadow-xl shadow-emerald-500/5 p-4 rounded-xl pointer-events-auto flex items-center space-x-3.5 relative overflow-hidden`}
+    >
+      {/* Structural Neon Laser Accent Line */}
+      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-emerald-400 via-cyan-500 to-indigo-500" />
+      
+      {/* High-Frequency Sync Ping Indicator */}
+      <div className="absolute top-2 right-2 flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+      </div>
+      
+      {/* Tactical UI Icon Frame */}
+      <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner shadow-emerald-500/20 font-mono text-sm font-black">
+        🔁
+      </div>
+      
+      {/* Terminal Telemetry Broadcast Text */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase tracking-widest font-mono text-slate-500 font-bold">
+          System Core Recycled
+        </p>
+        <p className="text-xs font-mono font-bold text-slate-200 mt-0.5 tracking-tight">
+          Lobby re-initialized. Prepare for <span className="text-emerald-400">ROUND 01</span>!
+        </p>
+      </div>
+    </div>
+  ), { position: "top-center" });
+};
+
+/**
+ * 📡 REGISTRATION TRIGGER: Player logged a confirmation sequence to the room host.
+ */
+export const ReadyToPlayAgain = (userName: string) => {
+  toast.custom((t) => (
+    <div
+      className={`${
+        t.visible ? "animate-enter" : "animate-leave"
+      } max-w-md w-full bg-slate-950/95 backdrop-blur-md border border-cyan-500/40 shadow-xl shadow-cyan-500/5 p-4 rounded-xl pointer-events-auto flex items-center space-x-3.5 relative overflow-hidden`}
+    >
+      {/* Structural Cyber-Grid Accent Sidebar */}
+      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-400 via-blue-500 to-violet-600" />
+      
+      {/* Synchronization Signal Dot */}
+      <div className="absolute top-2 right-2 flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+      </div>
+      
+      {/* HUD Telemetry Icon Container */}
+      <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-inner shadow-cyan-500/20 font-mono text-sm font-black">
+        ⚡
+      </div>
+      
+      {/* Notification Text Strings */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase tracking-widest font-mono text-slate-500 font-bold">
+          Vote Received
+        </p>
+        <p className="text-xs font-mono font-bold text-slate-200 mt-0.5 tracking-tight">
+          <span className="text-cyan-400 uppercase">[{userName || "SYSTEM_USER"}]</span> has readied up for the next match.
+        </p>
+      </div>
+    </div>
+  ), { position: "top-center" });
+};

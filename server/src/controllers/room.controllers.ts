@@ -182,61 +182,6 @@ export const changeRoomConfig = (io: Server, socket: Socket) => {
     })
 }
 
-export const playAgain = (io: Server, socket: Socket) => {
-    socket.on('play_again', async (data: {
-        roomId: string
-    }) => {
-        try {
-            const { roomId } = data
-            //roomExists
-            const roomExists = await redis.exists(`room:${roomId}`)
-            if (!Boolean(roomExists)) {
-                return;
-            }
-            //ishost
-            const adminId = await redis.hget(`room:${roomId}`, 'adminId')
-            if (adminId !== socket.id) {
-                return;
-            }
-            //isended
-            const roomStatus = await redis.hget(`room:${roomId}`, 'status')
-            if (roomStatus !== 'ended') {
-                return;
-            }
-            //room currentanswer,currentround,altername,status change
-            await redis.hset(`room:${roomId}`, {
-                currentCharacterName: '',
-                currentCharacterUrl: '',
-                currentAnswer: '',
-                alternateAnswer: JSON.stringify([]), // ◄ Convert array to string
-                currentRound: '0',
-                status: 'lobby',
-                hint1: '',
-                hint2: '',
-                hint1Revealed: 'false',           // ◄ Convert boolean to string
-                hint2Revealed: 'false',         // ◄ Convert boolean to string
-                timerEndsAt: '0'
-            });
-            //freshplayers
-            const playersRaw = await redis.hgetall(`room:${roomId}:players`)
-            for (const [userId, profileStr] of Object.entries(playersRaw)) {
-                const profile: IPlayers = JSON.parse(profileStr as string)
-                profile.score = 0;
-                profile.turnScore = 0;
-                profile.hasGuessed = false
-                await redis.hset(`room:${roomId}`, userId, JSON.stringify(profile))
-            }
-            const freshPlayers: IPlayers[] = Object.values(await redis.hgetall(`room:${roomId}:players`)).map((v) => JSON.parse(v as string))
-            //socket emit play again confirmed
-            return io.to(roomId).emit('play_again_confirmed', freshPlayers)
-        } catch (error) {
-            if (error instanceof Error) {
-                console.log('Error in playing again', error.message)
-            }
-        }
-    })
-}
-
 // BACKEND: Add this export function right below your joinRoom controller block
 
 export const syncRoomStateOnDemand = (io: Server, socket: Socket) => {

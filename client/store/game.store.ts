@@ -51,7 +51,9 @@ interface GameStore {
   setTotalRounds : (rounds : number)=>void;
   setImagesInOneRound : (images : number)=>void;
   setGuessTime : (time : number)=>void;
-  setMaxPlayers : (players : number)=>void
+  setMaxPlayers : (players : number)=>void;
+  hasReadiedUp : boolean;
+  setHasReadiedUp : (flag : boolean)=>void
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -77,6 +79,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   maxPlayers : 8,
   guessTime : 20,
   imagesInOneRound : 5,
+  hasReadiedUp : false,
 
   // --- Actions / Setters ---
   setHostName: (name) => set({ hostName: name }),
@@ -116,6 +119,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   setImagesInOneRound : (images : number)=>set({imagesInOneRound : images}),
   setMaxPlayers : (players : number)=>set({maxPlayers : players}),
   setTotalRounds : (rounds : number)=>set({totalRounds : rounds}),
+  setHasReadiedUp : (flag : boolean)=>set({hasReadiedUp : flag}),
 
   // --- Async Operations ---
   checkTakenAvatars: async (roomId: string) => {

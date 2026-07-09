@@ -1,7 +1,7 @@
 import { EndGameData, IntermissionData } from "@/app/room/[roomId]/page";
 import { IPlayers } from "@/components/DisplayScreen";
 import { FeedMessageData } from "@/components/LiveFeedPanel";
-import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayerJoinedToast, RoomCreatedToast, SystemMessageToast } from "@/components/Toast";
+import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, ReadyToPlayAgain, RoomCreatedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -26,7 +26,9 @@ export const useSocketListener = (socket: Socket) => {
         setGuessTime,
         setImagesInOneRound,
         setMaxPlayers,
-        guessTime
+        guessTime,
+        isAdmin,
+        endGameData,
     } = useGameStore()
     // setStatus('playing');
     // setIntermissionData(null);
@@ -229,11 +231,6 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('join_success');
         };
     }
-    // const joinErrorListener=()=>{
-    //     socket.on('join_error', (data: { message: string }) => {
-    //         toast.error(data.message);
-    //     });
-    // }
 
     const configUpdatedListener = () => {
         socket.on('config_updated', (data: {
@@ -260,11 +257,11 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('config_updated')
         }
     }
-    const playerJoined=()=>{
-        socket.on('player_joined',(data:{userName : string})=>{
-            const {userName}=data
+    const playerJoined = () => {
+        socket.on('player_joined', (data: { userName: string }) => {
+            const { userName } = data
             const uniqueMessageId = `${Date.now()}-${Math.random()}`;
-            const message=`${userName} joined the game`
+            const message = `${userName} joined the game`
             setFeedMessagesCollection((prev) => {
                 // Safeguard check against double-processing state buffers
                 // if (prev.some(m => m.userName === userName && m.guesss === message && Date.now() - parseFloat(m.id) < 100)) {
@@ -273,7 +270,7 @@ export const useSocketListener = (socket: Socket) => {
                 return [
                     {
                         id: uniqueMessageId,
-                        userName : 'SYSTEM',
+                        userName: 'SYSTEM',
                         guesss: message
                     },
                     ...prev,
@@ -281,10 +278,51 @@ export const useSocketListener = (socket: Socket) => {
             });
             PlayerJoinedToast(message)
         })
-        return ()=>{
+        return () => {
             socket.off('player_joined')
         }
     }
+    const playAgainSuccessListener = () => {
+        socket.on('play_again_success', (data: IPlayers[]) => {
+            setFeedMessagesCollection([])
+            setStatus('lobby')
+            setPlayers(data)
+            PlayAgainSuccessToast()
+        })
+        return () => {
+            socket.off('play_again_success')
+        }
+    }
+    const playAgainToggleSuccessListener = () => {
+        // FIXED: Destructure tracking 'userId' instead of raw temporary connection 'socketId'
+        socket.on('play_again_toggle_success', (data: { socketId: string, userName: string }) => {
+            const { socketId, userName } = data;
+            console.log("Inside play again toggle success listener (frontend)",socketId,userName)
+            console.log("End game data is : ",endGameData)
+
+            if (endGameData === null) return;
+
+            const newLeaderboard = endGameData.finalLeaderboard.map((p) => {
+                if (p.userId === socketId) {
+                    return { ...p, hasReadiedUp: true };
+                }
+                return p;
+            });
+            console.log("new leader board",newLeaderboard)
+
+            // Update the complete data block by passing it directly to the store setter
+            setEndGameData({
+                finalLeaderboard: newLeaderboard,
+            });
+            console.log("New End game data : ",endGameData)
+
+            ReadyToPlayAgain(userName);
+        });
+
+        return () => {
+            socket.off('play_again_toggle_success');
+        };
+    };
     return {
         connectListener,
         disconnectListener,
@@ -302,6 +340,8 @@ export const useSocketListener = (socket: Socket) => {
         roomStateUpdateListener,
         joinSuccessListener,
         configUpdatedListener,
-        playerJoined
+        playerJoined,
+        playAgainSuccessListener,
+        playAgainToggleSuccessListener
     }
 }

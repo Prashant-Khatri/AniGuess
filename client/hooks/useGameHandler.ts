@@ -20,6 +20,7 @@ export const useGameHandler = (socket: Socket) => {
     }
     const handlePlayAgain = (roomId:string) => socket.emit('play_again', { roomId });
     const handleDisbandRoom = (roomId : string) => socket.emit('disband_room', { roomId });
+
     const handleLeaveRoom = (roomId : string) => {
         socket.emit('leave_room', { roomId });
         router.push('/');
@@ -27,6 +28,10 @@ export const useGameHandler = (socket: Socket) => {
     const requestRoomData=(roomId : string)=>{
         socket.emit('request_room_data', { roomId });
     }
+    const playerReadyToggle=(roomId : string,socketId : string)=>{
+        console.log("Inside player ready toggle emitter (frontend)",roomId,socketId)
+        socket.emit('play_again_toggle',{roomId,socketId})
+    }
     //handlePlayAgain,handleDisbandRoom,handleLeaveRoom ko dhang se likhna hai
-    return { handleKickAction,submitGuess,startGame,handlePlayAgain,handleDisbandRoom,handleLeaveRoom,requestRoomData}
+    return { handleKickAction,submitGuess,startGame,handlePlayAgain,handleDisbandRoom,handleLeaveRoom,requestRoomData,playerReadyToggle}
 }
