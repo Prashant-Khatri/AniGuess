@@ -1,7 +1,7 @@
 import { EndGameData, IntermissionData } from "@/app/room/[roomId]/page";
 import { IPlayers } from "@/components/DisplayScreen";
 import { FeedMessageData } from "@/components/LiveFeedPanel";
-import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, ReadyToPlayAgain, RoomCreatedToast, SystemMessageToast } from "@/components/Toast";
+import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -27,7 +27,8 @@ export const useSocketListener = (socket: Socket) => {
         setGuessTime,
         setImagesInOneRound,
         setMaxPlayers,
-        setHasReadiedUp
+        setHasReadiedUp,
+        getAdminIdandAvatar
     } = currentStore
     // const endGameData=currentStore.endGameData
     // setStatus('playing');
@@ -170,6 +171,8 @@ export const useSocketListener = (socket: Socket) => {
     const roomCreatedListener = () => {
         socket.on('room_created', (data: { roomId: string }) => {
             const { roomId } = data;
+            setStatus('lobby')
+            setFeedMessagesCollection([])
             RoomCreatedToast()
             router.push(`/room/${roomId}`);
         });
@@ -239,6 +242,8 @@ export const useSocketListener = (socket: Socket) => {
             setTotalRounds(rounds)
             setImagesInOneRound(images)
             setMaxPlayers(players)
+            setStatus('lobby')
+            setFeedMessagesCollection([])
             JoinSuccessToast()
             router.push(`/room/${roomId.toUpperCase()}`);
         });
@@ -344,6 +349,34 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('play_again_toggle_success');
         };
     };
+    const playerLeavedListener=()=>{
+        socket.on('player_leaved',(data : {
+            roomId : string,
+            isAdmin : boolean,
+            newAdminUserName : string,
+            userName : string
+        })=>{
+            const {isAdmin,userName,newAdminUserName,roomId}=data
+            if(isAdmin){
+                getAdminIdandAvatar(roomId)
+            }
+            PlayerLeavedToast(isAdmin,userName,newAdminUserName)
+        })
+        return ()=>{
+            socket.off('player_leaved')
+        }
+    }
+    const roomDisbandedListener=()=>{
+        socket.on('room_disbanded',(data)=>{
+            RoomDisbandedToast()
+            setTimeout(() => {
+                router.push('/'); 
+            }, 1500);
+        })
+        return ()=>{
+            socket.off('room_disbanded')
+        }
+    }
     return {
         connectListener,
         disconnectListener,
@@ -363,6 +396,8 @@ export const useSocketListener = (socket: Socket) => {
         configUpdatedListener,
         playerJoined,
         playAgainSuccessListener,
-        playAgainToggleSuccessListener
+        playAgainToggleSuccessListener,
+        playerLeavedListener,
+        roomDisbandedListener
     }
 }

@@ -45,7 +45,7 @@ export const createRoom = (io: Server, socket: Socket) => {
                 guessTime: '20',
                 maxPlayers: '8'
             })
-            await redis.expire(`room:${roomId}`, 7200);
+            await redis.expire(`room:${roomId}`, 86400);
             const hostProfile: IPlayers = {
                 userName,
                 socketId: socket.id,
@@ -59,6 +59,9 @@ export const createRoom = (io: Server, socket: Socket) => {
             await redis.hset(`room:${roomId}:players`, userId, JSON.stringify(hostProfile))
             await redis.set(`socket_to_room:${socket.id}`, roomId)
             await redis.sadd(`room:${roomId}:taken_avatars`, avatarId)
+            await redis.expire(`socket_to_room:${socket.id}`, 86400);
+            await redis.expire(`room:${roomId}:players`, 86400);
+            await redis.expire(`room:${roomId}:taken_avatars`, 86400);
             socket.join(roomId)
             socket.emit('room_created', { roomId })
             io.to(roomId).emit('room_state_update', [hostProfile]);

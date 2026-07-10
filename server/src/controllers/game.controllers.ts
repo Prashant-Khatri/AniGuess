@@ -8,21 +8,106 @@ import { IPlayers } from "./room.controllers.js";
 // game_error
 // kicked_from_room
 
-export const playAgainToggle=(io : Server,socket : Socket)=>{
-    socket.on('play_again_toggle',async(data:{roomId : string,socketId : string})=>{
-        const {roomId,socketId}=data
-        console.log("Play again toggle listeners (backend)",socketId,roomId)
-        const roomKey=`room:${roomId}`
-        let userName=""
-        const allPlayersRaw=await redis.hgetall(`${roomKey}:players`)
-        for(const [userId,playerStr] of Object.entries(allPlayersRaw)){
-            const player : IPlayers=JSON.parse(playerStr)
-            if(player.socketId===socketId){
-                userName=player.userName
+export const leaveRoom = (io: Server, socket: Socket) => {
+    //roomexists
+    //adminId
+    //if one player only disband room
+    //if admin : pick random from players(except userId) room adminId,
+    //for both admin&non-admin : remove from players,and also its taken avatar
+    //emit room_state_update,leave_success,player_leaved{isAdmin,newAdminUserName,userName}
+    socket.on('leave_room', async (data: {
+        roomId: string,
+        userId: string
+    }) => {
+        try {
+            const { roomId, userId } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const roomExists = await redis.exists(roomKey);
+            if (!roomExists) return;
+            const [adminId, playersRaw] = await Promise.all([
+                redis.hget(roomKey, 'adminId'),
+                redis.hgetall(playersHashKey)
+            ]);
+            const targetPlayerRaw = playersRaw[userId];
+            if (!targetPlayerRaw) {
+                return socket.emit('game_error', { message: "Player profile not discovered in this channel" });
+            }
+            const playerToBeRemoved: IPlayers = JSON.parse(targetPlayerRaw);
+            const isAdmin = adminId === socket.id;
+            let newAdminUserName = "";
+            if (isAdmin) {
+                const nextHost = Object.values(playersRaw)
+                    .map((p) => JSON.parse(p) as IPlayers)
+                    .find((p) => p.socketId !== socket.id);
+
+                if (nextHost) {
+                    await redis.hset(roomKey, 'adminId', nextHost.socketId);
+                    newAdminUserName = nextHost.userName;
+                }
+            }
+            await Promise.all([
+                redis.hdel(playersHashKey, userId),
+                redis.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId),
+                redis.del(`socket_to_room:${socket.id}`)
+            ]);
+            delete playersRaw[userId];
+            const remainingPlayerCount = Object.keys(playersRaw).length;
+            if (remainingPlayerCount === 0) {
+                await redis.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
+                await socket.leave(roomId)
+                return
+            }
+            const freshPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
+            socket.to(roomId).emit('room_state_update', freshPlayers);
+            socket.to(roomId).emit('player_leaved', {
+                isAdmin,
+                newAdminUserName,
+                userName: playerToBeRemoved.userName,
+                roomId
+            });
+            await socket.leave(roomId);
+        } catch (error) {
+            console.error("Critical error inside leave vector execution:", error);
+            socket.emit('game_error', { message: "Failed to cleanly detach from current workspace infrastructure" });
+        }
+    })
+}
+
+export const disbandRoom=(io : Server,socket : Socket)=>{
+    socket.on('disband_room',async(data : {roomId : string})=>{
+        try {
+            const {roomId}=data
+            const roomKey=`room:${roomId}`
+            const adminId=await redis.hget(roomKey,'adminId')
+            if(adminId!==socket.id){
+                return socket.emit('game_error',{message : "Unable to disband room"})
+            }
+            await redis.del(roomKey,`${roomKey}:players`,`${roomKey}:taken_avatars`)
+            io.to(roomId).emit('room_disbanded')
+            io.in(roomId).socketsLeave(roomId);
+        } catch (error) {
+            console.log("Error in disbanding room : ",error)
+            socket.emit('game_error',{message : "Unable to disband room"})
+        }
+    })
+}
+
+export const playAgainToggle = (io: Server, socket: Socket) => {
+    socket.on('play_again_toggle', async (data: { roomId: string, socketId: string }) => {
+        const { roomId, socketId } = data
+        console.log("Play again toggle listeners (backend)", socketId, roomId)
+        const roomKey = `room:${roomId}`
+        let userName = ""
+        const allPlayersRaw = await redis.hgetall(`${roomKey}:players`)
+        for (const [userId, playerStr] of Object.entries(allPlayersRaw)) {
+            const player: IPlayers = JSON.parse(playerStr)
+            if (player.socketId === socketId) {
+                userName = player.userName
             }
         }
-        console.log("Emit play again toggle success (backend)",socketId,userName)
-        io.to(roomId).emit('play_again_toggle_success',{socketId,userName})
+        console.log("Emit play again toggle success (backend)", socketId, userName)
+        io.to(roomId).emit('play_again_toggle_success', { socketId, userName })
     })
 }
 
@@ -61,16 +146,16 @@ export const playAgain = (io: Server, socket: Socket) => {
             for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
                 const profile: IPlayers = JSON.parse(profileStr)
                 profile.hasGuessed = false,
-                profile.turnScore = 0,
-                profile.score=0
+                    profile.turnScore = 0,
+                    profile.score = 0
                 await redis.hset(`${roomKey}:players`, userId, JSON.stringify(profile))
             }
-            const resetedAllPlayersRaw=await redis.hgetall(`${roomKey}:players`)
-            const resetedAllPlayers : IPlayers[]=Object.values(resetedAllPlayersRaw).map((p)=>JSON.parse(p))
-            return io.to(roomId).emit('play_again_success',resetedAllPlayers)
+            const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
+            const resetedAllPlayers: IPlayers[] = Object.values(resetedAllPlayersRaw).map((p) => JSON.parse(p))
+            return io.to(roomId).emit('play_again_success', resetedAllPlayers)
         } catch (error) {
-            console.log("Couldn't reset the game : ",error)
-            return socket.emit('game_error',{message : "Couldn't reset the game"})
+            console.log("Couldn't reset the game : ", error)
+            return socket.emit('game_error', { message: "Couldn't reset the game" })
         }
     })
 }
@@ -212,7 +297,8 @@ export const handlePlayerGuess = (io: Server, socket: Socket) => {
                 if (totalGuessedCorrectly >= totalOnlinePlayers) {
                     await endTurnIntermission(io, roomId);
                 }
-            } else {
+            }
+            else if(!isCorrect){
                 //wrong emit feed_message : guess
                 io.to(roomId).emit('feed_message', {
                     userName: player.userName,
@@ -368,7 +454,7 @@ export const loadNextRound = async (io: Server, roomId: string) => {
             avatarId: player.avatarId,
             totalScore: player.score,
             rank: index + 1,// Loop index index tracking placement values (1st, 2nd, 3rd...)
-            hasReadiedUp : false,
+            hasReadiedUp: false,
         }));
 
         const endGamePayload = {

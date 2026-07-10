@@ -257,3 +257,93 @@ export const ReadyToPlayAgain = (userName: string) => {
     </div>
   ), { position: "top-center" });
 };
+
+
+export const PlayerLeavedToast = (isAdmin: boolean, userName: string, newAdminUserName: string) => {
+  return toast.custom((t) => (
+    <div
+      className={`${
+        t.visible ? 'animate-fade-in animate-scale-up' : 'animate-leave'
+      } max-w-md w-full bg-slate-900/95 backdrop-blur-md border-2 ${
+        isAdmin ? 'border-amber-500/50 shadow-amber-500/10' : 'border-rose-500/50 shadow-rose-500/10'
+      } p-4 rounded-2xl shadow-2xl pointer-events-auto flex flex-col space-y-2 font-mono relative overflow-hidden`}
+    >
+      {/* Decorative Top Accent Line */}
+      <div className={`absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r ${
+        isAdmin ? 'from-amber-500 via-orange-500 to-transparent' : 'from-rose-500 via-red-500 to-transparent'
+      }`} />
+
+      {/* Row 1: Player Disconnect Notification */}
+      <div className="flex items-center space-x-3">
+        <span className="text-rose-400 font-black animate-pulse">❌</span>
+        <div className="flex-1">
+          <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">
+            System Log // Connection Lost
+          </p>
+          <p className="text-xs font-bold text-slate-200">
+            <span className="text-rose-400 font-black uppercase">{userName}</span> has desynced and left the instance.
+          </p>
+        </div>
+      </div>
+
+      {/* Row 2: Host Migration Alert (Only fires if the leaving player was the admin) */}
+      {isAdmin && newAdminUserName && (
+        <div className="mt-1 pt-2 border-t border-slate-800/60 flex items-center space-x-3 animate-scale-up">
+          <span className="text-amber-400">👑</span>
+          <div className="flex-1">
+            <p className="text-[9px] uppercase font-black tracking-widest text-amber-500/80">
+              Authority Vector Shifted
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Permissions assigned to: <span className="text-amber-400 font-black uppercase">{newAdminUserName}</span> is now hosting.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  ), {
+    duration: 4000,
+    position: "top-right"
+  });
+};
+
+export const RoomDisbandedToast = () => {
+  return toast.custom((t) => (
+    <div
+      className={`${
+        t.visible ? 'animate-fade-in animate-scale-up' : 'animate-leave'
+      } max-w-md w-full bg-slate-950/95 backdrop-blur-md border-2 border-red-600/60 p-4 rounded-2xl shadow-2xl shadow-red-950/20 pointer-events-auto flex flex-col space-y-2 font-mono relative overflow-hidden`}
+    >
+      {/* Glitch-style Grid Background Overlay Accent */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e1b4b_1px,transparent_1px),linear-gradient(to_bottom,#1e1b4b_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none" />
+
+      {/* Warning Alert Header Banner */}
+      <div className="flex items-center space-x-3 relative z-10">
+        <div className="flex items-center justify-center w-6 h-6 rounded bg-red-500/10 border border-red-500 text-red-500 text-xs font-black animate-pulse">
+          ⚠️
+        </div>
+        <div className="flex-1">
+          <p className="text-[10px] uppercase font-black tracking-widest text-red-500 animate-pulse">
+            CRITICAL CRASH // LOBBY_TERMINATED
+          </p>
+          <h4 className="text-sm font-black text-slate-100 uppercase tracking-wide mt-0.5">
+            Instance Disbanded by Host
+          </h4>
+        </div>
+      </div>
+
+      {/* Subtext description log lines */}
+      <div className="pt-1.5 border-t border-slate-900 relative z-10">
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          The host has severed the terminal connection. Evacuating all active players back to the central hub command deck...
+        </p>
+      </div>
+
+      {/* Scanning Laser Line Animation Effect */}
+      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_0_10px_#ef4444] animate-[pulse_1.5s_infinite]" />
+    </div>
+  ), {
+    duration: 4500,
+    position: "top-center" // Centered at the top looks more like an unmissable global game alert
+  });
+};

@@ -22,7 +22,11 @@ export const useGameHandler = (socket: Socket) => {
     const handleDisbandRoom = (roomId : string) => socket.emit('disband_room', { roomId });
 
     const handleLeaveRoom = (roomId : string) => {
-        socket.emit('leave_room', { roomId });
+        const userId = localStorage.getItem('game_user_id');
+        if(!userId){
+            return
+        }
+        socket.emit('leave_room', { roomId ,userId});
         router.push('/');
     };
     const requestRoomData=(roomId : string)=>{

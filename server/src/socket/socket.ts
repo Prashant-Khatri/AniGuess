@@ -2,7 +2,7 @@ import express from 'express'
 import {createServer} from 'http'
 import {Server, Socket} from 'socket.io'
 import { changeRoomConfig, createRoom, joinRoom, syncRoomStateOnDemand } from '../controllers/room.controllers.js'
-import { handlePlayerGuess, kickPlayer, playAgain, playAgainToggle, startGame } from '../controllers/game.controllers.js'
+import { disbandRoom, handlePlayerGuess, kickPlayer, leaveRoom, playAgain, playAgainToggle, startGame } from '../controllers/game.controllers.js'
 
 const app=express()
 const server=createServer(app)
@@ -25,6 +25,8 @@ io.on('connection',(socket:Socket)=>{
     changeRoomConfig(io,socket)
     playAgain(io,socket)
     playAgainToggle(io,socket)
+    leaveRoom(io,socket)
+    disbandRoom(io,socket)
     socket.on('disconnect', (reason) => {
         console.log(`❌ [SOCKET DETACHED] ID: ${socket.id} | Reason: ${reason}`)
     })

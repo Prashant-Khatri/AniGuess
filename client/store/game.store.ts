@@ -136,10 +136,9 @@ export const useGameStore = create<GameStore>()((set) => ({
     }
   },
   getAdminIdandAvatar : async (targetRoomId: string) => {
-    console.log("hello")
+    set({ isAdmin: false });
     try {
       const res = await axios.get(`http://localhost:5000/api/get-admin/${targetRoomId}`);
-      console.log("Called api",res)
       const { adminId, avatarId, userName } = res.data;
       set({adminId,hostName : userName})
       

@@ -74,7 +74,7 @@ export default function RoomPage() {
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
   // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
   const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle } = useGameHandler(socket)
-  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener } = useSocketListener(socket)
+  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener } = useSocketListener(socket)
 
   useEffect(() => {
     if (!roomId) return;
@@ -92,6 +92,8 @@ export default function RoomPage() {
     const cleanPlayerJoined = playerJoined()
     const cleanPlayAgainSuccess = playAgainSuccessListener()
     const cleanPlayAgainToggle = playAgainToggleSuccessListener()
+    const cleanPlayerLeaved=playerLeavedListener()
+    const cleanRoomDisbanded=roomDisbandedListener()
     return () => {
       if (cleanError) cleanError();
       if (cleanKicked) cleanKicked();
@@ -102,6 +104,8 @@ export default function RoomPage() {
       if (cleanPlayerJoined) cleanPlayerJoined()
       if (cleanPlayAgainSuccess) cleanPlayAgainSuccess()
       if (cleanPlayAgainToggle) cleanPlayAgainToggle()
+      if(cleanPlayerLeaved) cleanPlayerLeaved()
+      if(cleanRoomDisbanded) cleanRoomDisbanded()
     }
   }, [roomId]);
 
@@ -277,7 +281,7 @@ export default function RoomPage() {
                   {/* Row 2: Secondary Destructive Channels */}
                   <div className="grid grid-cols-2 gap-2.5">
                     <button
-                      onClick={() => handleLeaveRoom(roomId)}
+                      onClick={() => handleLeaveRoom(roomId,)}
                       className="py-3 bg-slate-950 hover:bg-slate-900 text-slate-300 border border-slate-800 font-mono font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer active:scale-95"
                     >
                       🚪 Leave Instance
