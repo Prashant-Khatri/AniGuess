@@ -10,6 +10,7 @@ import { Socket } from "socket.io-client";
 
 export const useSocketListener = (socket: Socket) => {
     const router = useRouter()
+    const currentStore=useGameStore.getState()
     const {
         setStatus,
         setIntermissionData,
@@ -26,10 +27,9 @@ export const useSocketListener = (socket: Socket) => {
         setGuessTime,
         setImagesInOneRound,
         setMaxPlayers,
-        guessTime,
-        isAdmin,
-        endGameData,
-    } = useGameStore()
+        setHasReadiedUp
+    } = currentStore
+    // const endGameData=currentStore.endGameData
     // setStatus('playing');
     // setIntermissionData(null);
     // setRound(currentRound);
@@ -93,7 +93,7 @@ export const useSocketListener = (socket: Socket) => {
         }) => {
             const { currentRound, imageUrl } = data;
             setStatus('playing');
-            setRemainingTime(guessTime)
+            setRemainingTime(useGameStore.getState().guessTime)
             setIntermissionData(null);
             setRound(currentRound);
             setImageUrl(imageUrl);
@@ -134,8 +134,12 @@ export const useSocketListener = (socket: Socket) => {
     }
     const gameEndedListener = () => {
         socket.on('game_ended', (data: EndGameData) => {
+            console.log("Has received endgame data listener (frontend) : ",data)
+            setHasReadiedUp(false)
             setEndGameData(data);
             setStatus('ended');
+            // const currentStoreState = useGameStore.getState();
+            // console.log("Fresh Store State Snapshot after sync: ", currentStoreState.endGameData);
         });
         return () => {
             socket.off('game_ended')
@@ -223,9 +227,20 @@ export const useSocketListener = (socket: Socket) => {
         };
     }
     const joinSuccessListener = () => {
-        socket.on('join_success', (data: { roomId: string }) => {
+        socket.on('join_success', (data: { 
+            roomId: string,
+            players : number,
+            rounds : number,
+            images : number,
+            time : number 
+        }) => {
+            const {roomId,time,rounds,images,players}=data
+            setGuessTime(time)
+            setTotalRounds(rounds)
+            setImagesInOneRound(images)
+            setMaxPlayers(players)
             JoinSuccessToast()
-            router.push(`/room/${data.roomId.toUpperCase()}`);
+            router.push(`/room/${roomId.toUpperCase()}`);
         });
         return () => {
             socket.off('join_success');
@@ -298,7 +313,12 @@ export const useSocketListener = (socket: Socket) => {
         socket.on('play_again_toggle_success', (data: { socketId: string, userName: string }) => {
             const { socketId, userName } = data;
             console.log("Inside play again toggle success listener (frontend)",socketId,userName)
+            const endGameData=useGameStore.getState().endGameData
             console.log("End game data is : ",endGameData)
+
+            // const currentStoreState = useGameStore.getState();
+            // const newEndGameData=currentStoreState.endGameData
+            // console.log("Fresh Store State Snapshot after sync: ", newEndGameData);
 
             if (endGameData === null) return;
 
@@ -315,6 +335,7 @@ export const useSocketListener = (socket: Socket) => {
                 finalLeaderboard: newLeaderboard,
             });
             console.log("New End game data : ",endGameData)
+            // console.log("new game data by ai :",newEndGameData)
 
             ReadyToPlayAgain(userName);
         });

@@ -80,11 +80,12 @@ export const joinRoom = (io: Server, socket: Socket) => {
     }) => {
         try {
             const { userName, avatarId, roomId, userId } = data
-            const roomExists = await redis.exists(`room:${roomId}`)
+            const roomKey=`room:${roomId}`
+            const roomExists = await redis.exists(roomKey)
             if (!Boolean(roomExists)) {
                 return socket.emit('join_error', { message: 'Room Id is not valid' })
             }
-            const roomStatus = await redis.hget(`room:${roomId}`, 'status')
+            const roomStatus = await redis.hget(roomKey, 'status')
             if (roomStatus !== 'lobby') {
                 return socket.emit('join_error', { message: 'Cannot join this room. The match has already started!' });
             }
@@ -95,7 +96,7 @@ export const joinRoom = (io: Server, socket: Socket) => {
             if (avatarTaken === 0) {
                 return socket.emit('join_error', { message: 'Avatar is already taken' })
             }
-            const maxPlayers = await redis.hget(`room:${roomId}`, 'maxPlayers');
+            const maxPlayers = await redis.hget(roomKey, 'maxPlayers');
             const players = await redis.hgetall(`room:${roomId}:players`);
 
             // 1. Handle case where room doesn't exist yet (players will be empty/null)
@@ -123,8 +124,24 @@ export const joinRoom = (io: Server, socket: Socket) => {
             socket.join(roomId)
             const playersInRoomRaw = await redis.hgetall(`room:${roomId}:players`)
             const playersInRoom: IPlayers[] = Object.values(playersInRoomRaw).map((v) => JSON.parse(v as string))
+            const [maxPlayersRaw, guessTimeRaw, imagesInOneRoundRaw, totalRoundsRaw] = await redis.hmget(
+                roomKey,
+                'maxPlayers',
+                'guessTime',
+                'imagesInOneRound',
+                'totalRounds'
+            );
+
+            const maxPlayersT = maxPlayersRaw ? parseInt(maxPlayersRaw, 10) : 8;
+            const guessTime = guessTimeRaw ? parseInt(guessTimeRaw, 10) : 30;
+            const imagesInOneRound = imagesInOneRoundRaw ? parseInt(imagesInOneRoundRaw, 10) : 3;
+            const totalRounds = totalRoundsRaw ? parseInt(totalRoundsRaw, 10) : 5;
             socket.emit("join_success", {
-                roomId
+                roomId,
+                time : guessTime,
+                images : imagesInOneRound,
+                rounds : totalRounds,
+                players : maxPlayersT
             });
             io.to(roomId).emit('room_state_update', playersInRoom)
             // 🪐 Emits 'player_joined' to all clients in 'roomId' EXCEPT the sender
@@ -146,7 +163,7 @@ export const changeRoomConfig = (io: Server, socket: Socket) => {
     }) => {
         try {
             const { roomId, key, value } = data
-            console.log("Chnage config listener (backend) : ",roomId,key,value)
+            console.log("Chnage config listener (backend) : ", roomId, key, value)
             const roomKey = `room:${roomId}`
             //is exits
             const isExists = await redis.exists(roomKey)
@@ -166,9 +183,9 @@ export const changeRoomConfig = (io: Server, socket: Socket) => {
             //change rounds
             await redis.hset(roomKey, key, value.toString())
             //emit config_updated
-            console.log("Config updated emiiter (backend) : ",key,value)
+            console.log("Config updated emiiter (backend) : ", key, value)
             io.to(roomId).emit('config_updated', { key, value })
-            return socket.to(roomId).emit('feed_message',{
+            return socket.to(roomId).emit('feed_message', {
                 userName: "SYSTEM",
                 systemMsg: true,
                 message: `${key} set to ${value}`

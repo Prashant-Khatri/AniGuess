@@ -294,7 +294,7 @@ export default function RoomPage() {
                 <div className="grid grid-cols-2 gap-2.5 w-full">
                   {/* Option 1: Dynamic Ready Up Vector Voting Mechanism */}
                   <button
-                    onClick={handleReadyUp}
+                    onClick={handleReadyUp} disabled={hasReadiedUp}
                     className={`py-3 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${hasReadiedUp
                       ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.05)]"
                       : "bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-500 hover:to-violet-400 text-slate-950"
