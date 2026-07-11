@@ -43,12 +43,9 @@ export interface EndGameData {
 
 export default function RoomPage() {
   const params = useParams();
-  const router = useRouter();
-  console.log(params)
 
   // Cleanly isolate Room Transmission Token from safe client parameters
   const roomId = typeof params?.roomId === 'string' ? params.roomId.toUpperCase() : "";
-  console.log(roomId)
 
   // const currentSocketId = socket.id;
   const {
@@ -73,14 +70,16 @@ export default function RoomPage() {
 
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
   // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
-  const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle } = useGameHandler(socket)
-  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener } = useSocketListener(socket)
+  const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle,reJoinRoom } = useGameHandler(socket)
+  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener,reJoinSuccessListener,endedDataSyncedListener,intermissionDataSyncedListener,playerOfflineListener,playerRejoinListener,connectListener,disconnectListener} = useSocketListener(socket)
 
   useEffect(() => {
     if (!roomId) return;
-    console.log("Room Id is : ", roomId)
     getAdminIdandAvatar(roomId);
-  }, [roomId, socket.id]);
+    if(socket.connected){
+      reJoinRoom(roomId)
+    }
+  }, [roomId]);
 
   useEffect(() => {
     const cleanError = gameErrorListener()
@@ -94,6 +93,12 @@ export default function RoomPage() {
     const cleanPlayAgainToggle = playAgainToggleSuccessListener()
     const cleanPlayerLeaved=playerLeavedListener()
     const cleanRoomDisbanded=roomDisbandedListener()
+    const cleanRejoinSuccess=reJoinSuccessListener()
+    const cleanEndedDataSync=endedDataSyncedListener()
+    const cleanIntermissionDataSync=intermissionDataSyncedListener()
+    const cleanPlayerOffline=playerOfflineListener()
+    const cleanPlayerRejoin=playerRejoinListener()
+    const cleanDisconnect=disconnectListener()
     return () => {
       if (cleanError) cleanError();
       if (cleanKicked) cleanKicked();
@@ -106,6 +111,12 @@ export default function RoomPage() {
       if (cleanPlayAgainToggle) cleanPlayAgainToggle()
       if(cleanPlayerLeaved) cleanPlayerLeaved()
       if(cleanRoomDisbanded) cleanRoomDisbanded()
+      if(cleanRejoinSuccess) cleanRejoinSuccess()
+      if(cleanEndedDataSync) cleanEndedDataSync()
+      if(cleanIntermissionDataSync) cleanIntermissionDataSync()
+      if(cleanPlayerOffline) cleanPlayerOffline()
+      if(cleanPlayerRejoin) cleanPlayerRejoin()
+      if(cleanDisconnect) cleanDisconnect()
     }
   }, [roomId]);
 

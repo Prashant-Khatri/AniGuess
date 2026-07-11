@@ -1,4 +1,5 @@
 import { toast } from 'react-hot-toast'; // or 'sonner' depending on your setup
+import { Sparkles, Zap } from 'lucide-react'; // Or use emojis if preferred
 
 export const SystemMessageToast = (message: string) => {
   toast.custom(
@@ -346,4 +347,56 @@ export const RoomDisbandedToast = () => {
     duration: 4500,
     position: "top-center" // Centered at the top looks more like an unmissable global game alert
   });
+};
+
+export const PlayerRejoinToast = (userName: string) => {
+  toast.custom(
+    (t) => (
+      <div
+        className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-md w-full bg-slate-950/95 border-2 border-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)] pointer-events-auto flex p-4 backdrop-blur-md relative overflow-hidden`}
+        style={{
+          clipPath: 'polygon(0 0, 95% 0, 100% 25%, 100% 100%, 5% 100%, 0 75%)' // Sharp angular anime cuts
+        }}
+      >
+        {/* Subtle Cyber Grid Background Accent */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0891b210_1px,transparent_1px),linear-gradient(to_bottom,#0891b210_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+        
+        {/* Neon Status Indicator Stripe */}
+        <div className="absolute top-0 left-0 h-full w-1 bg-gradient-to-b from-cyan-400 to-blue-600 animate-pulse" />
+
+        <div className="flex items-center justify-between w-full z-10">
+          <div className="flex items-center gap-3">
+            {/* Action Icon Wrapper */}
+            <div className="p-2 bg-cyan-950 border border-cyan-500 text-cyan-400 rounded-sm shadow-[0_0_8px_rgba(6,182,212,0.3)] animate-bounce">
+              <Zap className="w-5 h-5 fill-cyan-400" />
+            </div>
+
+            {/* Notification Messages */}
+            <div className="flex flex-col">
+              <span className="text-xs tracking-[0.2em] uppercase font-bold text-cyan-400 font-mono flex items-center gap-1">
+                SYSTEM // RE-LINK SYSTEM
+              </span>
+              <p className="text-sm font-medium mt-0.5 text-slate-100">
+                <span className="text-cyan-300 font-extrabold tracking-wide drop-shadow-[0_0_5px_rgba(103,232,249,0.4)]">
+                  {userName}
+                </span>{' '}
+                has broken through the void and re-entered the match!
+              </p>
+            </div>
+          </div>
+
+          {/* Sparkly visual trailing edge */}
+          <div className="opacity-40 text-cyan-400 animate-pulse ml-4">
+            <Sparkles className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+    ),
+    {
+      duration: 4000,
+      position: 'top-right',
+    }
+  );
 };

@@ -52,6 +52,7 @@ export default function CreateRoomForm() {
             userId = 'usr_' + Math.random().toString(36).substring(2, 11);
             localStorage.setItem('game_user_id', userId);
         }
+        console.log("user Id is :",userId)
 
         createRoom(userName, avatarId, userId);
     };

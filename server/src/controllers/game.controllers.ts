@@ -4,9 +4,215 @@ import axios from "axios";
 import { Character, ICharacter } from "../models/character.models.js";
 import { IPlayers } from "./room.controllers.js";
 
+const disconnectionTimers: Record<string, NodeJS.Timeout> = {};
 
 // game_error
 // kicked_from_room
+
+export const reJoinRoom = (io: Server, socket: Socket) => {
+    socket.on('rejoin_room', async (data: {
+        roomId: string,
+        userId: string
+    }) => {
+        const { roomId, userId } = data
+        console.log("I am inside rejoin room : ",roomId,userId)
+        //check if in redis if socket_to_user:${socket.id} exists if exists then do nothing if not then store it in redis socket_to_user
+        const isFirstTimeMounting = await redis.exists(`socket_to_user:${socket.id}`)
+        console.log("Is this first time : ",isFirstTimeMounting)
+        if (isFirstTimeMounting) return
+        await redis.set(`socket_to_user:${socket.id}`, userId)
+        const playersRaw = await redis.hgetall(`room:${roomId}:players`)
+        const adminId = await redis.hget(`room:${roomId}`, 'adminId')
+        const reJoiningPlayerStr = playersRaw[userId]
+        const reJoiningPlayer: IPlayers = JSON.parse(reJoiningPlayerStr)
+        const previousSocketId = reJoiningPlayer.socketId
+        const isAdmin = adminId === previousSocketId
+        //fetch previous socket id by redis playershash userId player.socketId and update player.socketId to new socket id then save this back in redis
+        //check if adminid===previous socket if yes then change that to new socket in roomhash
+        reJoiningPlayer.isOnline = true
+        reJoiningPlayer.socketId = socket.id
+        console.log("previous socket id is : ",previousSocketId)
+        await redis.hset(`room:${roomId}:players`, userId, JSON.stringify(reJoiningPlayer))
+        if (isAdmin) {
+            await redis.hset(`room:${roomId}`, 'adminId', socket.id)
+        }
+        const [status, currentRoundStr, hint1, hint2, timerEndsAtStr,currentCharacterUrl] = await redis.hmget(
+            `room${roomId}`,
+            'status',
+            'currentRound',
+            'hint1',
+            'hint2',
+            'timerEndsAt',
+            'currentCharacterUrl'
+        )
+        const currentRound = parseInt(currentRoundStr as string)
+        const timerEndsAt = parseInt(timerEndsAtStr as string)
+        const timeLeft = timerEndsAt - Date.now()
+        const timeLeftInSecond = timeLeft / 1000
+        const freshPlayersRaw = await redis.hgetall(`room:${roomId}:players`)
+        const freshPlayers: IPlayers[] = Object.values(freshPlayersRaw).map((p) => JSON.parse(p))
+        socket.to(roomId).emit('player_rejoin', {freshPlayers,userName : reJoiningPlayer.userName})
+        socket.emit('rejoin_success', {
+            status,
+            currentRound,
+            timeLeftInSecond,
+            hint1,
+            hint2,
+            freshPlayers,
+            currentCharacterUrl
+        })
+        console.log('Rejoin success : ',status,
+            currentRound,
+            timeLeftInSecond,
+            timerEndsAt,
+            hint1,
+            hint2,
+            freshPlayers,
+            currentCharacterUrl)
+        await socket.join(roomId)
+        //emit success with room snapshot(status,currentanswer,timerendsat... etc) as payload
+    })
+}
+
+export const syncIntermissionData = (io: Server, socket: Socket) => {
+    socket.on('sync_intermission_data', async (data: { userId: string }) => {
+        const { userId } = data
+        const roomId = await redis.get(`user_to_room:${userId}`)
+        const roomKey = `room:${roomId}`
+        const status = await redis.hget(roomKey, 'status')
+        if (status !== 'intermission') {
+            return
+        }
+        //showleaderboard for client (answer and players)
+        const currentAnswer = await redis.hget(roomKey, 'currentAnswer')
+        const currentCharacterName = await redis.hget(roomKey, 'currentCharacterName')
+        const alternateName: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
+        const currentCharacterUrl = await redis.hget(roomKey, 'currentCharacterUrl')
+        const playersRaw = await redis.hgetall(`${roomKey}:players`);
+
+        // Object.entries splits the hash into an array of tuples: [userIdKey, stringifiedPlayerValue]
+        const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+            const parsedPlayer = JSON.parse(playerStr);
+
+            return {
+                ...parsedPlayer,
+                userId: userId // Injects the Redis hash field key inside the object
+            };
+        });
+        const sortedPlayers = playersList.sort((a, b) => b.score - a.score);
+
+        // 4. Map into your precise IntermissionData contract layout structure
+        const turnScores = sortedPlayers.map((player) => ({
+            userId: player.socketId, // Mapping socketId or unique key as userId boundary
+            userName: player.userName,
+            avatarId: player.avatarId,
+            pointsGained: player.turnScore,
+            totalScore: player.score
+        }));
+
+        const intermissionPayload = {
+            correctAnswer: currentCharacterName,
+            alternateNames: alternateName,
+            imageUrl: currentCharacterUrl,
+            turnScores // Sent fully ordered from highest to lowest score
+            //here add the anime name also
+        };
+
+        // 5. Transmit the payload matrix down the socket pipes
+        socket.emit('intermission_data_synced', intermissionPayload);
+    })
+}
+
+export const syncEndGameData = (io: Server, socket: Socket) => {
+    socket.on('sync_ended_data', async (data: { userId: string }) => {
+        const { userId } = data
+        const roomId = await redis.get(`user_to_room:${userId}`)
+        const roomKey = `room:${roomId}`
+        const status = await redis.hget(roomKey, 'status')
+        if (status !== 'ended') {
+            return
+        }
+        const playersRaw = await redis.hgetall(`${roomKey}:players`);
+        const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+            const parsedPlayer = JSON.parse(playerStr);
+            return {
+                ...parsedPlayer,
+                userId: userId // Injects the Redis hash field key inside the object
+            };
+        });
+
+        // 2. SORTING MECHANISM: Sort descending high-to-low based on overall total points
+        const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
+
+        // 3. Map into the final leaderboard array tracking explicit placement numerical ranks
+        const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
+            userId: player.socketId,
+            userName: player.userName,
+            avatarId: player.avatarId,
+            totalScore: player.score,
+            rank: index + 1,// Loop index index tracking placement values (1st, 2nd, 3rd...)
+            hasReadiedUp: false,
+        }));
+
+        const endGamePayload = {
+            finalLeaderboard
+        };
+        return socket.emit('ended_data_synced', endGamePayload)
+    })
+}
+
+export const handlePlayerPermanentlyLeft = async (io: Server, userId: string) => {
+    try {
+        const roomId = await redis.get(`user_to_room:${userId}`) as string
+        const roomKey = `room:${roomId}`;
+        const playersHashKey = `${roomKey}:players`;
+        const roomExists = await redis.exists(roomKey);
+        if (!roomExists) return;
+        const [adminId, playersRaw] = await Promise.all([
+            redis.hget(roomKey, 'adminId'),
+            redis.hgetall(playersHashKey)
+        ]);
+        const targetPlayerRaw = playersRaw[userId];
+        if (!targetPlayerRaw) {
+            return
+        }
+        const playerToBeRemoved: IPlayers = JSON.parse(targetPlayerRaw);
+        const isAdmin = adminId === playerToBeRemoved.socketId;
+        let newAdminUserName = "";
+        if (isAdmin) {
+            const nextHost = Object.values(playersRaw)
+                .map((p) => JSON.parse(p) as IPlayers)
+                .find((p) => p.socketId !== playerToBeRemoved.socketId);
+
+            if (nextHost) {
+                await redis.hset(roomKey, 'adminId', nextHost.socketId);
+                newAdminUserName = nextHost.userName;
+            }
+        }
+        await Promise.all([
+            redis.hdel(playersHashKey, userId),
+            redis.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId),
+            redis.del(`user_to_room:${userId}`),
+            redis.del(`socket_to_user:${playerToBeRemoved.socketId}`)
+        ]);
+        delete playersRaw[userId];
+        const remainingPlayerCount = Object.keys(playersRaw).length;
+        if (remainingPlayerCount === 0) {
+            await redis.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
+            return
+        }
+        const freshPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
+        io.to(roomId).emit('room_state_update', freshPlayers);
+        io.to(roomId).emit('player_leaved', {
+            isAdmin,
+            newAdminUserName,
+            userName: playerToBeRemoved.userName,
+            roomId
+        });
+    } catch (error) {
+        console.log("Error in permanently lefting player : ", error)
+    }
+}
 
 export const leaveRoom = (io: Server, socket: Socket) => {
     //roomexists
@@ -49,7 +255,8 @@ export const leaveRoom = (io: Server, socket: Socket) => {
             await Promise.all([
                 redis.hdel(playersHashKey, userId),
                 redis.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId),
-                redis.del(`socket_to_room:${socket.id}`)
+                redis.del(`user_to_room:${userId}`),
+                redis.del(`socket_to_user:${socket.id}`)
             ]);
             delete playersRaw[userId];
             const remainingPlayerCount = Object.keys(playersRaw).length;
@@ -74,21 +281,36 @@ export const leaveRoom = (io: Server, socket: Socket) => {
     })
 }
 
-export const disbandRoom=(io : Server,socket : Socket)=>{
-    socket.on('disband_room',async(data : {roomId : string})=>{
+export const disbandRoom = (io: Server, socket: Socket) => {
+    socket.on('disband_room', async (data: { roomId: string }) => {
         try {
-            const {roomId}=data
-            const roomKey=`room:${roomId}`
-            const adminId=await redis.hget(roomKey,'adminId')
-            if(adminId!==socket.id){
-                return socket.emit('game_error',{message : "Unable to disband room"})
+            const { roomId } = data
+            const roomKey = `room:${roomId}`
+            const playersHashKey = `${roomKey}:players`
+            const adminId = await redis.hget(roomKey, 'adminId')
+            if (adminId !== socket.id) {
+                return socket.emit('game_error', { message: "Unable to disband room" })
             }
-            await redis.del(roomKey,`${roomKey}:players`,`${roomKey}:taken_avatars`)
+            const totalRosterRaw = await redis.hgetall(playersHashKey);
+            if (totalRosterRaw) {
+                // 2. Iterate through every player entry to extract active vectors
+                for (const [userId, playerRaw] of Object.entries(totalRosterRaw)) {
+                    const player = JSON.parse(playerRaw);
+                    const socketId = player.socketId;
+
+                    // 3. Clear inverse lookups for this specific player
+                    if (socketId) {
+                        await redis.del(`socket_to_user:${socketId}`);
+                    }
+                    await redis.del(`user_to_room:${userId}`);
+                    await redis.del(roomKey, `${roomKey}:players`, `${roomKey}:taken_avatars`)
+                }
+            }
             io.to(roomId).emit('room_disbanded')
             io.in(roomId).socketsLeave(roomId);
         } catch (error) {
-            console.log("Error in disbanding room : ",error)
-            socket.emit('game_error',{message : "Unable to disband room"})
+            console.log("Error in disbanding room : ", error)
+            socket.emit('game_error', { message: "Unable to disband room" })
         }
     })
 }
@@ -205,12 +427,14 @@ export const kickPlayer = (io: Server, socket: Socket) => {
             await redis.hdel(`${roomKey}:players`, targetUserId);
 
             // Clean up the unique socket tracker mapping key
-            await redis.del(`socket_to_room:${targetSocketId}`);
+            await redis.del(`socket_to_user:${targetSocketId}`)
+            await redis.del(`user_to_room:${targetUserId}`)
 
             // Free up the player's avatar slot so other incoming applicants can claim it
             if (targetAvatarId !== null) {
                 await redis.srem(`${roomKey}:taken_avatars`, targetAvatarId);
             }
+            //target socket leave the roomId
 
             // 6. Alert the kicked client immediately so they get redirected to the homepage
             io.to(targetSocketId).emit("kicked_from_room");
@@ -298,7 +522,7 @@ export const handlePlayerGuess = (io: Server, socket: Socket) => {
                     await endTurnIntermission(io, roomId);
                 }
             }
-            else if(!isCorrect){
+            else if (!isCorrect) {
                 //wrong emit feed_message : guess
                 io.to(roomId).emit('feed_message', {
                     userName: player.userName,
@@ -424,13 +648,11 @@ export const loadNextRound = async (io: Server, roomId: string) => {
     for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
         const profile: IPlayers = JSON.parse(profileStr)
         profile.hasGuessed = false,
-            profile.turnScore = 0
-        console.log("New profile for next round", profile)
+        profile.turnScore = 0
         await redis.hset(`${roomKey}:players`, userId, JSON.stringify(profile))
     }
     const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
     const resetedAllPlayers: IPlayers[] = Object.values(resetedAllPlayersRaw).map((p) => JSON.parse(p))
-    console.log("Ab me krne wala hu reset : ", resetedAllPlayers)
     io.to(roomId).emit('room_state_update', resetedAllPlayers)
     const nextCharacterRaw = await redis.lpop(queueKey)
     if (!nextCharacterRaw) {
@@ -463,7 +685,7 @@ export const loadNextRound = async (io: Server, roomId: string) => {
         return io.to(roomId).emit('game_ended', endGamePayload)
     }
     const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw as string)
-    console.log("I am inside load next round backend current character : ", nextCharacter)
+    // console.log("I am inside load next round backend current character : ", nextCharacter)
     const currentRound = parseInt(await redis.hget(roomKey, 'currentRound') as string)
     const currentTurn = parseInt(await redis.hget(roomKey, 'currentTurn') as string)
     const imagesInOneRound = parseInt(await redis.hget(roomKey, 'imagesInOneRound') as string)
@@ -551,5 +773,36 @@ export const startGame = (io: Server, socket: Socket) => {
                 return socket.emit('game_error', { message: 'Game Start Crash Execution Error' })
             }
         }
+    })
+}
+
+export const disconnect = (io: Server, socket: Socket) => {
+    socket.on('disconnect', async (reason) => {
+        //if socket to userId dont exist then no need to do anything
+        const onHomePage = await redis.exists(`socket_to_user:${socket.id}`)
+        if (onHomePage) return
+        const userId = await redis.get(`socket_to_user:${socket.id}`) as string
+        const roomId = await redis.get(`user_to_room:${userId}`) as string
+        await redis.del(`socket_to_user:${socket.id}`)
+
+        //store this userId from get socket to user id(redis)
+        //roomid from user id to roomid
+        //disconnection timer
+        const playersHashKey = `room:${roomId}:players`;
+        const playerRaw = await redis.hget(playersHashKey, userId);
+        if (!playerRaw) return;
+
+        const player: IPlayers = JSON.parse(playerRaw);
+
+        // 3. Mark the player's vector state flag as "Away"
+        player.isOnline = false;
+        await redis.hset(playersHashKey, userId, JSON.stringify(player));
+        io.to(roomId).emit('player_offline', { userId });
+        disconnectionTimers[userId] = setTimeout(async () => {
+            // Clear out references completely
+            delete disconnectionTimers[userId];
+            await handlePlayerPermanentlyLeft(io, userId)
+        }, 8000);
+        console.log(`❌ [SOCKET DETACHED] ID: ${socket.id} | Reason: ${reason}`)
     })
 }

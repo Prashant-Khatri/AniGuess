@@ -1,7 +1,7 @@
 import { EndGameData, IntermissionData } from "@/app/room/[roomId]/page";
 import { IPlayers } from "@/components/DisplayScreen";
 import { FeedMessageData } from "@/components/LiveFeedPanel";
-import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
+import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, PlayerRejoinToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -10,7 +10,7 @@ import { Socket } from "socket.io-client";
 
 export const useSocketListener = (socket: Socket) => {
     const router = useRouter()
-    const currentStore=useGameStore.getState()
+    const currentStore = useGameStore.getState()
     const {
         setStatus,
         setIntermissionData,
@@ -46,7 +46,6 @@ export const useSocketListener = (socket: Socket) => {
         if (!socket.connected) {
             socket.connect();
         } else {
-            // If it's already connected (due to a hot-reload), run the log immediately
             onConnect();
         }
         return () => {
@@ -135,7 +134,7 @@ export const useSocketListener = (socket: Socket) => {
     }
     const gameEndedListener = () => {
         socket.on('game_ended', (data: EndGameData) => {
-            console.log("Has received endgame data listener (frontend) : ",data)
+            console.log("Has received endgame data listener (frontend) : ", data)
             setHasReadiedUp(false)
             setEndGameData(data);
             setStatus('ended');
@@ -230,14 +229,14 @@ export const useSocketListener = (socket: Socket) => {
         };
     }
     const joinSuccessListener = () => {
-        socket.on('join_success', (data: { 
+        socket.on('join_success', (data: {
             roomId: string,
-            players : number,
-            rounds : number,
-            images : number,
-            time : number 
+            players: number,
+            rounds: number,
+            images: number,
+            time: number
         }) => {
-            const {roomId,time,rounds,images,players}=data
+            const { roomId, time, rounds, images, players } = data
             setGuessTime(time)
             setTotalRounds(rounds)
             setImagesInOneRound(images)
@@ -317,9 +316,9 @@ export const useSocketListener = (socket: Socket) => {
         // FIXED: Destructure tracking 'userId' instead of raw temporary connection 'socketId'
         socket.on('play_again_toggle_success', (data: { socketId: string, userName: string }) => {
             const { socketId, userName } = data;
-            console.log("Inside play again toggle success listener (frontend)",socketId,userName)
-            const endGameData=useGameStore.getState().endGameData
-            console.log("End game data is : ",endGameData)
+            console.log("Inside play again toggle success listener (frontend)", socketId, userName)
+            const endGameData = useGameStore.getState().endGameData
+            console.log("End game data is : ", endGameData)
 
             // const currentStoreState = useGameStore.getState();
             // const newEndGameData=currentStoreState.endGameData
@@ -333,13 +332,13 @@ export const useSocketListener = (socket: Socket) => {
                 }
                 return p;
             });
-            console.log("new leader board",newLeaderboard)
+            console.log("new leader board", newLeaderboard)
 
             // Update the complete data block by passing it directly to the store setter
             setEndGameData({
                 finalLeaderboard: newLeaderboard,
             });
-            console.log("New End game data : ",endGameData)
+            console.log("New End game data : ", endGameData)
             // console.log("new game data by ai :",newEndGameData)
 
             ReadyToPlayAgain(userName);
@@ -349,32 +348,117 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('play_again_toggle_success');
         };
     };
-    const playerLeavedListener=()=>{
-        socket.on('player_leaved',(data : {
-            roomId : string,
-            isAdmin : boolean,
-            newAdminUserName : string,
-            userName : string
-        })=>{
-            const {isAdmin,userName,newAdminUserName,roomId}=data
-            if(isAdmin){
+    const playerLeavedListener = () => {
+        socket.on('player_leaved', (data: {
+            roomId: string,
+            isAdmin: boolean,
+            newAdminUserName: string,
+            userName: string
+        }) => {
+            const { isAdmin, userName, newAdminUserName, roomId } = data
+            if (isAdmin) {
                 getAdminIdandAvatar(roomId)
             }
-            PlayerLeavedToast(isAdmin,userName,newAdminUserName)
+            PlayerLeavedToast(isAdmin, userName, newAdminUserName)
         })
-        return ()=>{
+        return () => {
             socket.off('player_leaved')
         }
     }
-    const roomDisbandedListener=()=>{
-        socket.on('room_disbanded',(data)=>{
+    const roomDisbandedListener = () => {
+        socket.on('room_disbanded', (data) => {
             RoomDisbandedToast()
             setTimeout(() => {
-                router.push('/'); 
+                router.push('/');
             }, 1500);
         })
-        return ()=>{
+        return () => {
             socket.off('room_disbanded')
+        }
+    }
+    const playerOfflineListener = () => {
+        socket.on('player_offline', (data: { socketId: string }) => {
+            const {socketId}=data
+            const players : IPlayers[]=useGameStore.getState().players
+            const updatedPlayers = players.map((p)=>{
+                if(p.socketId===socketId){
+                    return {...p,isOnline : false}
+                }
+                return p
+            })
+            setPlayers(updatedPlayers)
+        })
+        return ()=>{
+            socket.off('player_offline')
+        }
+    }
+    const reJoinSuccessListener = () => {
+        socket.on('rejoin_success', (data: {
+            status: string,
+            currentRound: number,
+            timeLeftInSecond: number,
+            hint1: string,
+            hint2: string,
+            freshPlayers: IPlayers[],
+            currentCharacterUrl: string
+        }) => {
+            const {
+                status,
+                currentRound,
+                timeLeftInSecond,
+                hint1,
+                hint2,
+                freshPlayers,
+                currentCharacterUrl
+            } = data
+            const userId = localStorage.getItem('game_user_id');
+            if (status === 'intermission') {
+                socket.emit('sync_intermission_data', { userId })
+            }
+            if (status === 'ended') {
+                socket.emit('sync_ended_data', { userId })
+            }
+            console.log('Inside rejoin success (listener) : ',data)
+            setStatus(status)
+            setRound(currentRound)
+            setPlayers(freshPlayers)
+            setHint1(hint1)
+            setHint2(hint2)
+            setRemainingTime(timeLeftInSecond)
+            setImageUrl(currentCharacterUrl)
+        })
+        return ()=>{
+            socket.off('rejoin_success')
+        }
+    }
+    const endedDataSyncedListener = () => {
+        socket.on('ended_data_synced', (data: EndGameData) => {
+            setEndGameData(data)
+        })
+        return ()=>{
+            socket.off('ended_data_synced')
+        }
+    }
+    const intermissionDataSyncedListener = () => {
+        socket.on('intermission_data_synced', (data: IntermissionData) => {
+            setIntermissionData(data)
+        })
+        return ()=>{
+            socket.off('intermission_data_synced')
+        }
+    }
+    const playerRejoinListener=()=>{
+        socket.on('player_rejoin',(data : {
+            freshPlayers : IPlayers[],
+            userName : string
+        })=>{
+            const {freshPlayers,userName}=data
+            setPlayers(freshPlayers)
+            console.log("Player rejoin listener (frontend) : ",freshPlayers)
+            PlayerRejoinToast(userName)
+        })
+        return ()=>{
+            socket.off('player_rejoin')
         }
     }
     return {
@@ -398,6 +482,11 @@ export const useSocketListener = (socket: Socket) => {
         playAgainSuccessListener,
         playAgainToggleSuccessListener,
         playerLeavedListener,
-        roomDisbandedListener
+        roomDisbandedListener,
+        reJoinSuccessListener,
+        playerOfflineListener,
+        endedDataSyncedListener,
+        intermissionDataSyncedListener,
+        playerRejoinListener
     }
 }

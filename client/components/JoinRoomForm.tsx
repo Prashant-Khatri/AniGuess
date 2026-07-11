@@ -41,7 +41,6 @@ export default function JoinRoomForm() {
     useEffect(() => {
         // Query taken items from Redis as soon as room code matches structural limit
         if (roomId.length === 6) {
-            console.log("RoomId is : ", roomId)
             checkTakenAvatars(roomId)
         } else {
             setTakenAvatars([]);

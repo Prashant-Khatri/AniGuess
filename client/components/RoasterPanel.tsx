@@ -14,7 +14,6 @@ interface RosterPanelProps {
 }
 
 export default function RosterPanel({ roomId }: RosterPanelProps) {
-  console.log("GGGG")
   const { isAdmin, status, players } = useGameStore()
   const { roomStateUpdateListener } = useSocketListener(socket)
   // const [players, setPlayers] = useState<IPlayers[]>([]);

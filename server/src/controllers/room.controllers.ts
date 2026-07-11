@@ -57,9 +57,11 @@ export const createRoom = (io: Server, socket: Socket) => {
                 isAdmin: true
             }
             await redis.hset(`room:${roomId}:players`, userId, JSON.stringify(hostProfile))
-            await redis.set(`socket_to_room:${socket.id}`, roomId)
+            await redis.set(`user_to_room:${userId}`, roomId)
+            await redis.set(`socket_to_user:${socket.id}`, userId)
             await redis.sadd(`room:${roomId}:taken_avatars`, avatarId)
-            await redis.expire(`socket_to_room:${socket.id}`, 86400);
+            await redis.expire(`user_to_room:${userId}`, 86400);
+            await redis.expire(`socket_to_user:${socket.id}`, 86400)
             await redis.expire(`room:${roomId}:players`, 86400);
             await redis.expire(`room:${roomId}:taken_avatars`, 86400);
             socket.join(roomId)
@@ -83,7 +85,7 @@ export const joinRoom = (io: Server, socket: Socket) => {
     }) => {
         try {
             const { userName, avatarId, roomId, userId } = data
-            const roomKey=`room:${roomId}`
+            const roomKey = `room:${roomId}`
             const roomExists = await redis.exists(roomKey)
             if (!Boolean(roomExists)) {
                 return socket.emit('join_error', { message: 'Room Id is not valid' })
@@ -122,7 +124,10 @@ export const joinRoom = (io: Server, socket: Socket) => {
                 isOnline: true,
                 isAdmin: false
             }
-            await redis.set(`socket_to_room:${socket.id}`, roomId)
+            await redis.set(`user_to_room:${userId}`, roomId)
+            await redis.set(`socket_to_user:${socket.id}`, userId)
+            await redis.expire(`user_to_room:${userId}`, 86400);
+            await redis.expire(`socket_to_user:${socket.id}`, 86400)
             await redis.hset(`room:${roomId}:players`, userId, JSON.stringify(joinerProfile))
             socket.join(roomId)
             const playersInRoomRaw = await redis.hgetall(`room:${roomId}:players`)
@@ -141,10 +146,10 @@ export const joinRoom = (io: Server, socket: Socket) => {
             const totalRounds = totalRoundsRaw ? parseInt(totalRoundsRaw, 10) : 5;
             socket.emit("join_success", {
                 roomId,
-                time : guessTime,
-                images : imagesInOneRound,
-                rounds : totalRounds,
-                players : maxPlayersT
+                time: guessTime,
+                images: imagesInOneRound,
+                rounds: totalRounds,
+                players: maxPlayersT
             });
             io.to(roomId).emit('room_state_update', playersInRoom)
             // 🪐 Emits 'player_joined' to all clients in 'roomId' EXCEPT the sender
