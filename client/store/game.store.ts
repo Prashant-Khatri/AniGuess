@@ -53,7 +53,9 @@ interface GameStore {
   setGuessTime : (time : number)=>void;
   setMaxPlayers : (players : number)=>void;
   hasReadiedUp : boolean;
-  setHasReadiedUp : (flag : boolean)=>void
+  setHasReadiedUp : (flag : boolean)=>void;
+  isRefreshing : boolean;
+  setIsRefreshing : (flag : boolean)=>void
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -80,6 +82,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   guessTime : 20,
   imagesInOneRound : 5,
   hasReadiedUp : false,
+  isRefreshing : false,
 
   // --- Actions / Setters ---
   setHostName: (name) => set({ hostName: name }),
@@ -140,6 +143,7 @@ export const useGameStore = create<GameStore>()((set) => ({
     try {
       const res = await axios.get(`http://localhost:5000/api/get-admin/${targetRoomId}`);
       const { adminId, avatarId, userName } = res.data;
+      console.log("After refresh inside get adminIdavatar in store : ",adminId)
       set({adminId,hostName : userName})
       
       // Target correct image URL structure out of layout matrix index array
@@ -147,10 +151,12 @@ export const useGameStore = create<GameStore>()((set) => ({
       set({avatarUrl : foundAvatar ? foundAvatar.imageUrl : "https://api.dicebear.com/7.x/bottts/svg?seed=host"});
       
       if (adminId === socket.id) {
+        console.log("Current socket id is getadminIdavatar : ",socket.id)
         set({isAdmin : true})
       }
     } catch (error) {
       toast.error("Failed to sync structural room admin vectors.");
     }
-  }
+  },
+  setIsRefreshing : (flag : boolean)=>set({isRefreshing : flag})
 }));

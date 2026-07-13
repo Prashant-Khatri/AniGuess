@@ -1,7 +1,7 @@
 import { EndGameData, IntermissionData } from "@/app/room/[roomId]/page";
 import { IPlayers } from "@/components/DisplayScreen";
 import { FeedMessageData } from "@/components/LiveFeedPanel";
-import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, PlayerRejoinToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
+import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, PlayerOfflineToast, PlayerRejoinToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -28,7 +28,10 @@ export const useSocketListener = (socket: Socket) => {
         setImagesInOneRound,
         setMaxPlayers,
         setHasReadiedUp,
-        getAdminIdandAvatar
+        getAdminIdandAvatar,
+        setAdminId,
+        setIsAdmin,
+        setIsRefreshing
     } = currentStore
     // const endGameData=currentStore.endGameData
     // setStatus('playing');
@@ -44,6 +47,7 @@ export const useSocketListener = (socket: Socket) => {
         };
         socket.on("connect", onConnect);
         if (!socket.connected) {
+            console.log("Socket is not connected : goint to connect")
             socket.connect();
         } else {
             onConnect();
@@ -379,14 +383,19 @@ export const useSocketListener = (socket: Socket) => {
     const playerOfflineListener = () => {
         socket.on('player_offline', (data: { socketId: string }) => {
             const {socketId}=data
+            let userName=""
+            let showToast=true
             const players : IPlayers[]=useGameStore.getState().players
             const updatedPlayers = players.map((p)=>{
                 if(p.socketId===socketId){
+                    userName=p.userName
+                    showToast=false
                     return {...p,isOnline : false}
                 }
                 return p
             })
             setPlayers(updatedPlayers)
+            if(userName && showToast) PlayerOfflineToast(userName)
         })
         return ()=>{
             socket.off('player_offline')
@@ -400,7 +409,8 @@ export const useSocketListener = (socket: Socket) => {
             hint1: string,
             hint2: string,
             freshPlayers: IPlayers[],
-            currentCharacterUrl: string
+            currentCharacterUrl: string,
+            isAdmin : boolean
         }) => {
             const {
                 status,
@@ -409,7 +419,8 @@ export const useSocketListener = (socket: Socket) => {
                 hint1,
                 hint2,
                 freshPlayers,
-                currentCharacterUrl
+                currentCharacterUrl,
+                isAdmin
             } = data
             const userId = localStorage.getItem('game_user_id');
             if (status === 'intermission') {
@@ -417,6 +428,10 @@ export const useSocketListener = (socket: Socket) => {
             }
             if (status === 'ended') {
                 socket.emit('sync_ended_data', { userId })
+            }
+            if(isAdmin){
+                setIsAdmin(true)
+                setAdminId(socket.id as string)
             }
             console.log('Inside rejoin success (listener) : ',data)
             setStatus(status)
@@ -426,6 +441,7 @@ export const useSocketListener = (socket: Socket) => {
             setHint2(hint2)
             setRemainingTime(timeLeftInSecond)
             setImageUrl(currentCharacterUrl)
+            setIsRefreshing(false)
         })
         return ()=>{
             socket.off('rejoin_success')
@@ -433,6 +449,7 @@ export const useSocketListener = (socket: Socket) => {
     }
     const endedDataSyncedListener = () => {
         socket.on('ended_data_synced', (data: EndGameData) => {
+            console.log("I am inside endedData sync",data)
             setEndGameData(data)
         })
         return ()=>{
@@ -461,6 +478,15 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('player_rejoin')
         }
     }
+
+    const setIsRefreshingListener=()=>{
+        socket.on('set_is_refreshing',(data)=>{
+            setIsRefreshing(true)
+        })
+        return ()=>{
+            socket.off('set_is_refreshing')
+        }
+    }
     return {
         connectListener,
         disconnectListener,
@@ -487,6 +513,7 @@ export const useSocketListener = (socket: Socket) => {
         playerOfflineListener,
         endedDataSyncedListener,
         intermissionDataSyncedListener,
-        playerRejoinListener
+        playerRejoinListener,
+        setIsRefreshingListener
     }
 }

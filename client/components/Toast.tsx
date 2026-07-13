@@ -1,5 +1,6 @@
 import { toast } from 'react-hot-toast'; // or 'sonner' depending on your setup
 import { Sparkles, Zap } from 'lucide-react'; // Or use emojis if preferred
+import { WifiOff, AlertTriangle } from 'lucide-react';
 
 export const SystemMessageToast = (message: string) => {
   toast.custom(
@@ -396,6 +397,56 @@ export const PlayerRejoinToast = (userName: string) => {
     ),
     {
       duration: 4000,
+      position: 'top-right',
+    }
+  );
+};
+
+export const PlayerOfflineToast = (userName: string) => {
+  toast.custom(
+    (t) => (
+      <div
+        className={`${
+          t.visible ? 'animate-enter' : 'animate-leave'
+        } max-w-md w-full bg-slate-950/95 border-2 border-amber-600 text-white shadow-[0_0_15px_rgba(217,119,6,0.4)] pointer-events-auto flex p-4 backdrop-blur-md relative overflow-hidden`}
+        style={{
+          clipPath: 'polygon(0 0, 100% 0, 100% 75%, 95% 100%, 0 100%, 0 25%)' // Sharp angular cut matching the UI matrix
+        }}
+      >
+        {/* Warning Neon Glitch Stripe */}
+        <div className="absolute top-0 right-0 h-full w-1 bg-gradient-to-b from-amber-500 to-red-600 animate-pulse" />
+
+        <div className="flex items-center justify-between w-full z-10">
+          <div className="flex items-center gap-3">
+            {/* Warning Icon Wrapper */}
+            <div className="p-2 bg-amber-950/80 border border-amber-600 text-amber-500 rounded-sm shadow-[0_0_8px_rgba(217,119,6,0.3)] animate-pulse">
+              <WifiOff className="w-5 h-5" />
+            </div>
+
+            {/* Notification Messages */}
+            <div className="flex flex-col">
+              <span className="text-xs tracking-[0.2em] uppercase font-bold text-amber-500 font-mono flex items-center gap-1 animate-pulse">
+                [!] WARNING // LINK_LOST
+              </span>
+              <p className="text-sm font-medium mt-0.5 text-slate-200">
+                Signal lost for{' '}
+                <span className="text-amber-400 font-extrabold tracking-wide drop-shadow-[0_0_5px_rgba(245,158,11,0.4)]">
+                  {userName}
+                </span>
+                . Awaiting matrix synchronization...
+              </p>
+            </div>
+          </div>
+
+          {/* Danger structural accent tag */}
+          <div className="opacity-30 text-red-500 animate-bounce ml-4 hidden sm:block">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+    ),
+    {
+      duration: 5000,
       position: 'top-right',
     }
   );

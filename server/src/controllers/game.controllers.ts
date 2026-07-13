@@ -15,15 +15,15 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
         userId: string
     }) => {
         const { roomId, userId } = data
-        console.log("I am inside rejoin room : ",roomId,userId)
-        //check if in redis if socket_to_user:${socket.id} exists if exists then do nothing if not then store it in redis socket_to_user
+        const roomKey = `room:${roomId}`
         const isFirstTimeMounting = await redis.exists(`socket_to_user:${socket.id}`)
-        console.log("Is this first time : ",isFirstTimeMounting)
         if (isFirstTimeMounting) return
+        socket.emit('set_is_refreshing')
         await redis.set(`socket_to_user:${socket.id}`, userId)
-        const playersRaw = await redis.hgetall(`room:${roomId}:players`)
-        const adminId = await redis.hget(`room:${roomId}`, 'adminId')
+        const playersRaw = await redis.hgetall(`${roomKey}:players`)
+        const adminId = await redis.hget(roomKey, 'adminId')
         const reJoiningPlayerStr = playersRaw[userId]
+        if (!reJoiningPlayerStr) return
         const reJoiningPlayer: IPlayers = JSON.parse(reJoiningPlayerStr)
         const previousSocketId = reJoiningPlayer.socketId
         const isAdmin = adminId === previousSocketId
@@ -31,27 +31,28 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
         //check if adminid===previous socket if yes then change that to new socket in roomhash
         reJoiningPlayer.isOnline = true
         reJoiningPlayer.socketId = socket.id
-        console.log("previous socket id is : ",previousSocketId)
-        await redis.hset(`room:${roomId}:players`, userId, JSON.stringify(reJoiningPlayer))
+        console.log("previous socket id is : ", previousSocketId)
+        await redis.hset(`${roomKey}:players`, userId, JSON.stringify(reJoiningPlayer))
         if (isAdmin) {
             await redis.hset(`room:${roomId}`, 'adminId', socket.id)
         }
-        const [status, currentRoundStr, hint1, hint2, timerEndsAtStr,currentCharacterUrl] = await redis.hmget(
-            `room${roomId}`,
+        const [status, currentRoundStr, hint1, hint2, timerEndsAtStr, currentCharacterUrl] = await redis.hmget(
+            roomKey,
             'status',
             'currentRound',
             'hint1',
             'hint2',
             'timerEndsAt',
             'currentCharacterUrl'
-        )
+        );
         const currentRound = parseInt(currentRoundStr as string)
         const timerEndsAt = parseInt(timerEndsAtStr as string)
         const timeLeft = timerEndsAt - Date.now()
         const timeLeftInSecond = timeLeft / 1000
         const freshPlayersRaw = await redis.hgetall(`room:${roomId}:players`)
         const freshPlayers: IPlayers[] = Object.values(freshPlayersRaw).map((p) => JSON.parse(p))
-        socket.to(roomId).emit('player_rejoin', {freshPlayers,userName : reJoiningPlayer.userName})
+        await socket.join(roomId)
+        socket.to(roomId).emit('player_rejoin', { freshPlayers, userName: reJoiningPlayer.userName })
         socket.emit('rejoin_success', {
             status,
             currentRound,
@@ -59,9 +60,10 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
             hint1,
             hint2,
             freshPlayers,
-            currentCharacterUrl
+            currentCharacterUrl,
+            isAdmin
         })
-        console.log('Rejoin success : ',status,
+        console.log('Rejoin success : ', status,
             currentRound,
             timeLeftInSecond,
             timerEndsAt,
@@ -69,7 +71,11 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
             hint2,
             freshPlayers,
             currentCharacterUrl)
-        await socket.join(roomId)
+            console.log("Disconnection timer is :",disconnectionTimers)
+            if (disconnectionTimers[userId]) {
+                clearTimeout(disconnectionTimers[userId]);
+                delete disconnectionTimers[userId];
+            }
         //emit success with room snapshot(status,currentanswer,timerendsat... etc) as payload
     })
 }
@@ -163,6 +169,7 @@ export const syncEndGameData = (io: Server, socket: Socket) => {
 
 export const handlePlayerPermanentlyLeft = async (io: Server, userId: string) => {
     try {
+        console.log('I am inside handlePlaterPermanentlyleft')
         const roomId = await redis.get(`user_to_room:${userId}`) as string
         const roomKey = `room:${roomId}`;
         const playersHashKey = `${roomKey}:players`;
@@ -648,7 +655,7 @@ export const loadNextRound = async (io: Server, roomId: string) => {
     for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
         const profile: IPlayers = JSON.parse(profileStr)
         profile.hasGuessed = false,
-        profile.turnScore = 0
+            profile.turnScore = 0
         await redis.hset(`${roomKey}:players`, userId, JSON.stringify(profile))
     }
     const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
@@ -778,10 +785,18 @@ export const startGame = (io: Server, socket: Socket) => {
 
 export const disconnect = (io: Server, socket: Socket) => {
     socket.on('disconnect', async (reason) => {
+        console.log("Inside disconnect listener : (backend)", socket.id)
         //if socket to userId dont exist then no need to do anything
-        const onHomePage = await redis.exists(`socket_to_user:${socket.id}`)
-        if (onHomePage) return
+        const notOnHomePage = await redis.exists(`socket_to_user:${socket.id}`)
+        console.log("I am on homepage : ", !notOnHomePage)
+        if (!notOnHomePage) return
         const userId = await redis.get(`socket_to_user:${socket.id}`) as string
+        disconnectionTimers[userId] = setTimeout(async () => {
+            console.log("Now i am inside disconnect timer")
+            // Clear out references completely
+            delete disconnectionTimers[userId];
+            await handlePlayerPermanentlyLeft(io, userId)
+        }, 15000);
         const roomId = await redis.get(`user_to_room:${userId}`) as string
         await redis.del(`socket_to_user:${socket.id}`)
 
@@ -793,16 +808,16 @@ export const disconnect = (io: Server, socket: Socket) => {
         if (!playerRaw) return;
 
         const player: IPlayers = JSON.parse(playerRaw);
+        if (player.socketId !== socket.id) {
+            console.log(`⚠️ [STALE DISCONNECT IGNORED] Old socket ${socket.id} disconnected, but player has already moved to socket ${player.socketId}`);
+            return; 
+        }
 
         // 3. Mark the player's vector state flag as "Away"
         player.isOnline = false;
         await redis.hset(playersHashKey, userId, JSON.stringify(player));
-        io.to(roomId).emit('player_offline', { userId });
-        disconnectionTimers[userId] = setTimeout(async () => {
-            // Clear out references completely
-            delete disconnectionTimers[userId];
-            await handlePlayerPermanentlyLeft(io, userId)
-        }, 8000);
+        io.to(roomId).emit('player_offline', { socketId: socket.id });
+        console.log("user id is before setting disconnecttimeout : ",userId)
         console.log(`❌ [SOCKET DETACHED] ID: ${socket.id} | Reason: ${reason}`)
     })
 }

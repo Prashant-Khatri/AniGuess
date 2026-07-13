@@ -16,6 +16,7 @@ import GuessInputBar from "@/components/GuessInputBar";
 import { useGameHandler } from "@/hooks/useGameHandler";
 import { useSocketListener } from "@/hooks/useSocketListener";
 import { useGameStore } from "@/store/game.store";
+import { RefreshLoader } from "@/components/RefreshLoader";
 
 export interface IntermissionData {
   correctAnswer: string;
@@ -56,7 +57,8 @@ export default function RoomPage() {
     showAnswerPhase,
     getAdminIdandAvatar,
     hasReadiedUp,
-    setHasReadiedUp
+    setHasReadiedUp,
+    isRefreshing,
   } = useGameStore()
   // const [hostName, setHostName] = useState<string>("");
   // const [avatarUrl, setAvatarUrl] = useState<string>("");
@@ -71,14 +73,12 @@ export default function RoomPage() {
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
   // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
   const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle,reJoinRoom } = useGameHandler(socket)
-  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener,reJoinSuccessListener,endedDataSyncedListener,intermissionDataSyncedListener,playerOfflineListener,playerRejoinListener,connectListener,disconnectListener} = useSocketListener(socket)
+  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener,reJoinSuccessListener,endedDataSyncedListener,intermissionDataSyncedListener,playerOfflineListener,playerRejoinListener,connectListener,disconnectListener,setIsRefreshingListener} = useSocketListener(socket)
 
   useEffect(() => {
     if (!roomId) return;
     getAdminIdandAvatar(roomId);
-    if(socket.connected){
-      reJoinRoom(roomId)
-    }
+    reJoinRoom(roomId)
   }, [roomId]);
 
   useEffect(() => {
@@ -99,6 +99,8 @@ export default function RoomPage() {
     const cleanPlayerOffline=playerOfflineListener()
     const cleanPlayerRejoin=playerRejoinListener()
     const cleanDisconnect=disconnectListener()
+    const cleanConnect=connectListener()
+    const cleanIsRefreshing=setIsRefreshingListener()
     return () => {
       if (cleanError) cleanError();
       if (cleanKicked) cleanKicked();
@@ -117,6 +119,8 @@ export default function RoomPage() {
       if(cleanPlayerOffline) cleanPlayerOffline()
       if(cleanPlayerRejoin) cleanPlayerRejoin()
       if(cleanDisconnect) cleanDisconnect()
+      if(cleanConnect) cleanConnect()
+      if(cleanIsRefreshing) cleanIsRefreshing()
     }
   }, [roomId]);
 
@@ -130,6 +134,7 @@ export default function RoomPage() {
 
   return (
     <main className="min-h-screen w-full bg-slate-950 p-3 sm:p-6 text-slate-100 flex flex-col space-y-4 font-sans antialiased relative overflow-hidden selection:bg-indigo-500 selection:text-white">
+      {isRefreshing && <RefreshLoader/>}
       {/* Background Decorative Energy Rays */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none z-0" />

@@ -1,3 +1,4 @@
+import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { Socket } from "socket.io-client";
 
@@ -38,6 +39,7 @@ export const useGameHandler = (socket: Socket) => {
     }
     const reJoinRoom=(roomId : string)=>{
         const userId = localStorage.getItem('game_user_id');
+        if(!userId) return
         console.log("Inside rejoin room emitter (frontend) : ",roomId,userId)
         socket.emit('rejoin_room',{roomId,userId})
     }
