@@ -47,6 +47,7 @@ export default function RoomPage() {
 
   // Cleanly isolate Room Transmission Token from safe client parameters
   const roomId = typeof params?.roomId === 'string' ? params.roomId.toUpperCase() : "";
+  const router = useRouter()
 
   // const currentSocketId = socket.id;
   const {
@@ -59,6 +60,8 @@ export default function RoomPage() {
     hasReadiedUp,
     setHasReadiedUp,
     isRefreshing,
+    verifyEntry,
+    isValidating
   } = useGameStore()
   // const [hostName, setHostName] = useState<string>("");
   // const [avatarUrl, setAvatarUrl] = useState<string>("");
@@ -72,13 +75,30 @@ export default function RoomPage() {
 
   // Phase tracker inside intermission overlay (true = show answer card, false = show round scores)
   // const [showAnswerPhase, setShowAnswerPhase] = useState<boolean>(true);
-  const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle,reJoinRoom } = useGameHandler(socket)
-  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener,playerLeavedListener,roomDisbandedListener,reJoinSuccessListener,endedDataSyncedListener,intermissionDataSyncedListener,playerOfflineListener,playerRejoinListener,connectListener,disconnectListener,setIsRefreshingListener} = useSocketListener(socket)
+  const { handleDisbandRoom, handleLeaveRoom, handlePlayAgain, playerReadyToggle, reJoinRoom } = useGameHandler(socket)
+  const { gameEndedListener, gameErrorListener, gameStartedListener, roundInitListener, roundIntermissionStartListener, kickedFromRoomListener, playerJoined, playAgainSuccessListener, playAgainToggleSuccessListener, playerLeavedListener, roomDisbandedListener, reJoinSuccessListener, endedDataSyncedListener, intermissionDataSyncedListener, playerOfflineListener, playerRejoinListener, connectListener, disconnectListener, setIsRefreshingListener } = useSocketListener(socket)
 
   useEffect(() => {
-    if (!roomId) return;
+    const userId = localStorage.getItem('game_user_id');
+    if (!userId || !roomId) {
+      return
+    }
+    verifyEntry(roomId, userId, router)
     getAdminIdandAvatar(roomId);
-    reJoinRoom(roomId)
+    const handleSafeRejoin = () => {
+      console.log("🔌 Socket active. Emitting rejoin protocol:", socket.id);
+      reJoinRoom(roomId);
+    };
+
+    if (socket.connected) {
+      handleSafeRejoin();
+    } else {
+      socket.once("connect", handleSafeRejoin);
+    }
+
+    return () => {
+      socket.off("connect", handleSafeRejoin);
+    };
   }, [roomId]);
 
   useEffect(() => {
@@ -91,16 +111,16 @@ export default function RoomPage() {
     const cleanPlayerJoined = playerJoined()
     const cleanPlayAgainSuccess = playAgainSuccessListener()
     const cleanPlayAgainToggle = playAgainToggleSuccessListener()
-    const cleanPlayerLeaved=playerLeavedListener()
-    const cleanRoomDisbanded=roomDisbandedListener()
-    const cleanRejoinSuccess=reJoinSuccessListener()
-    const cleanEndedDataSync=endedDataSyncedListener()
-    const cleanIntermissionDataSync=intermissionDataSyncedListener()
-    const cleanPlayerOffline=playerOfflineListener()
-    const cleanPlayerRejoin=playerRejoinListener()
-    const cleanDisconnect=disconnectListener()
-    const cleanConnect=connectListener()
-    const cleanIsRefreshing=setIsRefreshingListener()
+    const cleanPlayerLeaved = playerLeavedListener()
+    const cleanRoomDisbanded = roomDisbandedListener()
+    const cleanRejoinSuccess = reJoinSuccessListener()
+    const cleanEndedDataSync = endedDataSyncedListener()
+    const cleanIntermissionDataSync = intermissionDataSyncedListener()
+    const cleanPlayerOffline = playerOfflineListener()
+    const cleanPlayerRejoin = playerRejoinListener()
+    const cleanDisconnect = disconnectListener()
+    const cleanConnect = connectListener()
+    const cleanIsRefreshing = setIsRefreshingListener()
     return () => {
       if (cleanError) cleanError();
       if (cleanKicked) cleanKicked();
@@ -111,16 +131,16 @@ export default function RoomPage() {
       if (cleanPlayerJoined) cleanPlayerJoined()
       if (cleanPlayAgainSuccess) cleanPlayAgainSuccess()
       if (cleanPlayAgainToggle) cleanPlayAgainToggle()
-      if(cleanPlayerLeaved) cleanPlayerLeaved()
-      if(cleanRoomDisbanded) cleanRoomDisbanded()
-      if(cleanRejoinSuccess) cleanRejoinSuccess()
-      if(cleanEndedDataSync) cleanEndedDataSync()
-      if(cleanIntermissionDataSync) cleanIntermissionDataSync()
-      if(cleanPlayerOffline) cleanPlayerOffline()
-      if(cleanPlayerRejoin) cleanPlayerRejoin()
-      if(cleanDisconnect) cleanDisconnect()
-      if(cleanConnect) cleanConnect()
-      if(cleanIsRefreshing) cleanIsRefreshing()
+      if (cleanPlayerLeaved) cleanPlayerLeaved()
+      if (cleanRoomDisbanded) cleanRoomDisbanded()
+      if (cleanRejoinSuccess) cleanRejoinSuccess()
+      if (cleanEndedDataSync) cleanEndedDataSync()
+      if (cleanIntermissionDataSync) cleanIntermissionDataSync()
+      if (cleanPlayerOffline) cleanPlayerOffline()
+      if (cleanPlayerRejoin) cleanPlayerRejoin()
+      if (cleanDisconnect) cleanDisconnect()
+      if (cleanConnect) cleanConnect()
+      if (cleanIsRefreshing) cleanIsRefreshing()
     }
   }, [roomId]);
 
@@ -131,10 +151,13 @@ export default function RoomPage() {
   }
 
   // Host Action Control Handlers
+  if (isValidating) {
+    return <RefreshLoader message="Verifying Identity Clearance Matrix..." />;
+  }
 
   return (
     <main className="min-h-screen w-full bg-slate-950 p-3 sm:p-6 text-slate-100 flex flex-col space-y-4 font-sans antialiased relative overflow-hidden selection:bg-indigo-500 selection:text-white">
-      {isRefreshing && <RefreshLoader/>}
+      {isRefreshing && <RefreshLoader />}
       {/* Background Decorative Energy Rays */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none z-0" />

@@ -24,7 +24,7 @@ export const createRoom = (io: Server, socket: Socket) => {
             if (!userName || !avatarId) {
                 return socket.emit('join_error', { message: 'Fill all the required fields' })
             }
-            const roomId = Math.floor(Math.random() * 1000000).toString()
+            const roomId = Math.floor(100000 + Math.random() * 900000).toString();
             await redis.hset(`room:${roomId}`, {
                 roomId,
                 totalRounds: '3',

@@ -1,6 +1,8 @@
 import React from 'react';
 
-export const RefreshLoader = () => {
+export const RefreshLoader = ({ 
+  message = "Re-establishing Neural Link..." 
+}:{message? : string}) => {
   return (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center overflow-hidden selection:bg-indigo-500 selection:text-white antialiased font-sans">
       {/* Anime Sci-Fi Cyber Grid Overlay */}
@@ -49,7 +51,7 @@ export const RefreshLoader = () => {
           </div>
           
           <h2 className="text-sm font-mono font-bold tracking-wide uppercase text-slate-300 animate-pulse duration-1500">
-            Re-establishing Neural Link...
+            {message}
           </h2>
           
           <p className="text-[10px] font-mono text-slate-600 uppercase tracking-tight">

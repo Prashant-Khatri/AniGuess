@@ -42,3 +42,39 @@ export const getAdmin=async(req : Request,res : Response)=>{
         return res.status(500).json({ message: 'Internal server error' });
     }
 }
+
+export const isAuthorized=async(req : Request,res : Response)=>{
+    try {
+        const {userId,roomId}=req.body
+        if(!userId || !roomId){
+            return res.status(401).json({
+                success : false,
+                message : "UserId or RoomId not found"
+            })
+        }
+        const roomExists=await redis.exists(`room:${roomId}`)
+        if(!roomExists){
+            return res.status(402).json({
+                success : false,
+                message : "Room doesn't exists"
+            })
+        }
+        const player=await redis.hget(`room:${roomId}:players`,userId)
+        if(!player){
+            return res.status(401).json({
+                success : false,
+                message : "Unauthorized"
+            })
+        }
+        return res.status(200).json({
+            success : true,
+            message : "Authorized"
+        })
+    } catch (error) {
+        console.log("Error in authorizing player",error)
+        return res.status(500).json({
+            success : false,
+            message : "Server error in authorizing player"
+        })
+    }
+}

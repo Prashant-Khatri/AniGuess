@@ -4,6 +4,8 @@ import { FeedMessage } from "@/components/LiveFeedPanel";
 import { AVATARS } from "@/lib/avatar";
 import { socket } from "@/lib/socket";
 import axios, { AxiosError } from "axios";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { create } from "zustand";
 
@@ -55,7 +57,9 @@ interface GameStore {
   hasReadiedUp : boolean;
   setHasReadiedUp : (flag : boolean)=>void;
   isRefreshing : boolean;
-  setIsRefreshing : (flag : boolean)=>void
+  setIsRefreshing : (flag : boolean)=>void;
+  verifyEntry : (roomId : string,userId : string,router : AppRouterInstance)=>Promise<void>;
+  isValidating : boolean;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -83,6 +87,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   imagesInOneRound : 5,
   hasReadiedUp : false,
   isRefreshing : false,
+  isValidating : true,
 
   // --- Actions / Setters ---
   setHostName: (name) => set({ hostName: name }),
@@ -158,5 +163,21 @@ export const useGameStore = create<GameStore>()((set) => ({
       toast.error("Failed to sync structural room admin vectors.");
     }
   },
-  setIsRefreshing : (flag : boolean)=>set({isRefreshing : flag})
+  setIsRefreshing : (flag : boolean)=>set({isRefreshing : flag}),
+  verifyEntry : async(roomId : string,userId : string,router : AppRouterInstance)=>{
+    set({isValidating : true})
+    try {
+      const res=await axios.post('http://localhost:5000/api/verify-entry',{
+        roomId,
+        userId
+      })
+      if(res.status===200){
+        set({isValidating : false})
+      }
+    } catch (error) {
+      const axiosError=error as AxiosError
+      console.log("Error in verifying entry : ",axiosError.response?.data)
+      router.push('/')
+    }
+  }
 }));
