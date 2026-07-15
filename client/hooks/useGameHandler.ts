@@ -1,4 +1,3 @@
-import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
 import { Socket } from "socket.io-client";
 
@@ -33,9 +32,10 @@ export const useGameHandler = (socket: Socket) => {
     const requestRoomData=(roomId : string)=>{
         socket.emit('request_room_data', { roomId });
     }
-    const playerReadyToggle=(roomId : string,socketId : string)=>{
-        console.log("Inside player ready toggle emitter (frontend)",roomId,socketId)
-        socket.emit('play_again_toggle',{roomId,socketId})
+    const playerReadyToggle=(roomId : string)=>{
+        const userId = localStorage.getItem('game_user_id');
+        if(!userId) return
+        socket.emit('play_again_toggle',{roomId,userId})
     }
     const reJoinRoom=(roomId : string)=>{
         const userId = localStorage.getItem('game_user_id');
@@ -43,6 +43,5 @@ export const useGameHandler = (socket: Socket) => {
         console.log("Inside rejoin room emitter (frontend) : ",roomId,userId)
         socket.emit('rejoin_room',{roomId,userId})
     }
-    //handlePlayAgain,handleDisbandRoom,handleLeaveRoom ko dhang se likhna hai
     return { handleKickAction,submitGuess,startGame,handlePlayAgain,handleDisbandRoom,handleLeaveRoom,requestRoomData,playerReadyToggle,reJoinRoom}
 }

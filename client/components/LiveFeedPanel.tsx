@@ -2,7 +2,7 @@
 import { useSocketListener } from "@/hooks/useSocketListener";
 import { socket } from "@/lib/socket";
 import { useGameStore } from "@/store/game.store";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 
 export interface FeedMessage {
   id: string;
@@ -17,36 +17,31 @@ export interface FeedMessageData {
 }
 
 export default function LiveFeedPanel() {
-  const { feedMessagesCollection, status, setFeedMessagesCollection } = useGameStore();
+  const feedMessagesCollection = useGameStore((state) => state.feedMessagesCollection);
+  const status = useGameStore((state) => state.status);
+  const setFeedMessagesCollection = useGameStore((state) => state.setFeedMessagesCollection);
   const { feedMessageListener } = useSocketListener(socket);
-
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Bind the feed message listener and capture its cleanup function
     const cleanFeedMessage = feedMessageListener();
-
-    // Strip the listener on unmount to completely stop duplicate chat entries
     return () => {
       if (cleanFeedMessage) cleanFeedMessage();
     };
-  }, []); // Secure empty array ensures this binds exactly once on mount
-
-  // Automatically reset the stream logs whenever moving to intermission or ended
+  }, []);
   useEffect(() => {
     if (status === 'ended' || status === 'intermission') {
       setFeedMessagesCollection([]);
     }
-  }, [status]);
-
-  // FIX: The feed is active in BOTH 'playing' and 'lobby' status modes
+  }, [status, setFeedMessagesCollection]);
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [feedMessagesCollection.length]);
   const isFeedActive = status === 'playing' || status === 'lobby';
-
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col backdrop-blur-md shadow-xl min-h-[380px] max-h-[420px] relative overflow-hidden group">
-      
-      {/* Decorative Matrix Accent Line */}
       <div className="absolute top-0 right-0 h-[2px] w-full bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
-
-      {/* Panel Header */}
       <div className="mb-3 flex items-center justify-between border-b border-slate-800/80 pb-2">
         <h3 className="text-xs uppercase font-mono font-black tracking-widest text-slate-400 flex items-center gap-1.5">
           📡 Decoded Transmissions
@@ -58,8 +53,6 @@ export default function LiveFeedPanel() {
           </span>
         )}
       </div>
-
-      {/* Dynamic Conditional Feed Viewport */}
       {!isFeedActive ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-800/50 rounded-xl bg-slate-950/20">
           <span className="text-lg mb-1 opacity-40 filter grayscale">🛸</span>
@@ -74,11 +67,12 @@ export default function LiveFeedPanel() {
           </span>
         </div>
       ) : (
-        /* Message Stream Grid Viewport */
-        <div className="space-y-2 overflow-y-auto flex-1 pr-1 scrollbar-thin scrollbar-thumb-slate-800 flex flex-col">
+        <div 
+          ref={scrollContainerRef}
+          className="space-y-2 overflow-y-auto flex-1 pr-1 scrollbar-thin scrollbar-thumb-slate-800 flex flex-col scroll-smooth"
+        >
           {feedMessagesCollection.map((msg) => {
             const isSystem = msg.userName === 'SYSTEM';
-
             return (
               <div
                 key={msg.id}
@@ -88,7 +82,6 @@ export default function LiveFeedPanel() {
                     : "bg-slate-950/30 border border-slate-900 hover:border-slate-800"
                 }`}
               >
-                {/* Left Vertical Glowing Vector Accent - Only for System Warnings */}
                 {isSystem && (
                   <div className="absolute left-0 top-0 w-[3px] h-full bg-gradient-to-b from-amber-500 via-amber-600 to-transparent" />
                 )}
@@ -100,7 +93,6 @@ export default function LiveFeedPanel() {
                 <div className="font-mono text-xs leading-relaxed min-w-0 break-words flex-1">
                   {isSystem ? (
                     <>
-                      {/* Specialized Core Badge styling for system announcements */}
                       <span className="font-mono font-black text-[9px] tracking-widest text-amber-500 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded uppercase mr-2 select-none">
                         {msg.userName}
                       </span>
@@ -110,7 +102,6 @@ export default function LiveFeedPanel() {
                     </>
                   ) : (
                     <>
-                      {/* Standard layout logic path for custom player transmissions */}
                       <span className="font-black text-slate-400 uppercase tracking-tight mr-2 border-r border-slate-800 pr-2">
                         {msg.userName}
                       </span>

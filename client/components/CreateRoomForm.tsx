@@ -11,32 +11,73 @@ import { useRoomHandler } from '@/hooks/useRoomHandler';
 import { useRouter } from 'next/navigation';
 import { socket } from '@/lib/socket';
 import { useSocketListener } from '@/hooks/useSocketListener';
-
-// Declare instance outside the component render cycle to prevent multi-connection leaks
-
+interface AvatarGridProps {
+    avatarId: number;
+    setAvatarId: (id: number) => void;
+}
+const AvatarGrid = React.memo(function AvatarGrid({ avatarId, setAvatarId }: AvatarGridProps) {
+    return (
+        <div className="grid grid-cols-4 gap-2.5">
+            {AVATARS.map((a: Avatar) => {
+                const isSelected = avatarId === a.id;
+                const isAnySelected = avatarId !== 0;
+                const isGreyedOut = isAnySelected && !isSelected;
+                return (
+                    <Card
+                        key={a.id}
+                        onClick={() => setAvatarId(a.id)}
+                        className={`cursor-pointer transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
+                            ${isSelected
+                                ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-lg shadow-orange-500/10 z-10'
+                                : 'border-slate-900 bg-slate-900/40 hover:border-slate-700 hover:scale-[1.02]'
+                            }
+                            ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
+                        `}
+                    >
+                        {isSelected && (
+                            <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-bl-md shadow-sm" />
+                        )}
+                        <CardHeader className="p-1.5 text-center bg-slate-950/60 border-b border-slate-900/40">
+                            <CardTitle className={`text-[10px] font-bold tracking-tight truncate transition-colors
+                                ${isSelected ? 'text-orange-400' : 'text-slate-400 group-hover/card:text-slate-200'}`}>
+                                {a.name}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex justify-center p-2.5 bg-transparent">
+                            <div className={`relative rounded-full p-0.5 transition-all duration-300 border
+                                ${isSelected ? 'border-orange-400 scale-110 shadow-sm shadow-orange-400/20' : 'border-slate-800'}`}>
+                                <Image
+                                    src={a.imageUrl}
+                                    alt={a.name}
+                                    height={44}
+                                    width={44}
+                                    className="rounded-full bg-slate-950 object-cover"
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+                );
+            })}
+        </div>
+    );
+});
 export default function CreateRoomForm() {
     const [userName, setUserName] = useState<string>("");
     const [errorMessage, setErrorMessage] = useState<string>("");
     const [avatarId, setAvatarId] = useState<number>(0);
     const { createRoom } = useRoomHandler(socket);
     const router = useRouter();
-    const { roomCreatedListener, joinErrorListener } = useSocketListener(socket)
-
+    const { roomCreatedListener, joinErrorListener } = useSocketListener(socket);
     useEffect(() => {
-        // Bind listeners and capture their cleanup functions
         const cleanRoomCreated = roomCreatedListener();
         const cleanJoinError = joinErrorListener();
-
-        // Clean up subscriptions on unmount/re-run to prevent duplicate toasts
         return () => {
             if (cleanRoomCreated) cleanRoomCreated();
             if (cleanJoinError) cleanJoinError();
         };
-    }, []); // Safe empty dependency array so it only initializes once on mount
-
+    }, []); 
     const submitHandler = (e: React.FormEvent) => {
-        e.preventDefault(); // ◄ Prevents page reload
-
+        e.preventDefault(); 
         if (userName.trim() === "") {
             setErrorMessage('Username can\'t be empty');
             return;
@@ -45,24 +86,17 @@ export default function CreateRoomForm() {
             toast.error('Please select an avatar');
             return;
         }
-
-        // Persistent Unique Identification Engine
         let userId = localStorage.getItem('game_user_id');
         if (!userId) {
             userId = 'usr_' + Math.random().toString(36).substring(2, 11);
             localStorage.setItem('game_user_id', userId);
         }
-        console.log("user Id is :",userId)
-
         createRoom(userName, avatarId, userId);
     };
 
     return (
         <form onSubmit={submitHandler} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-orange-500/30 rounded-2xl shadow-xl shadow-orange-500/5 relative backdrop-blur-md overflow-hidden group">
-            {/* Top Decorative Cyberpunk/Anime Border Accent */}
             <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-orange-500 to-transparent" />
-
-            {/* Username Input Field Block */}
             <Field className="space-y-1.5">
                 <div className="flex justify-between items-center">
                     <FieldLabel htmlFor="input-field-username" className="text-xs uppercase font-extrabold tracking-wider text-slate-300 group-focus-within:text-orange-400 transition-colors">
@@ -93,59 +127,12 @@ export default function CreateRoomForm() {
                     </FieldError>
                 )}
             </Field>
-
-            {/* Dynamic Card Selection Gallery Wrapper Container */}
             <div className="space-y-3">
                 <label className="text-xs uppercase font-extrabold tracking-wider text-slate-300 block">
                     🧬 Select Avatar Frame
                 </label>
-                <div className="grid grid-cols-4 gap-2.5">
-                    {AVATARS.map((a: Avatar) => {
-                        const isSelected = avatarId === a.id;
-                        const isAnySelected = avatarId !== 0;
-                        const isGreyedOut = isAnySelected && !isSelected;
-
-                        return (
-                            <Card
-                                key={a.id}
-                                onClick={() => setAvatarId(a.id)}
-                                className={`cursor-pointer transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
-                                    ${isSelected
-                                        ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-lg shadow-orange-500/10 z-10'
-                                        : 'border-slate-900 bg-slate-900/40 hover:border-slate-700 hover:scale-[1.02]'
-                                    }
-                                    ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
-                                `}
-                            >
-                                {/* Diagonal Neon Marker Backdrop Corner Ribbon Accent */}
-                                {isSelected && (
-                                    <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-bl-md shadow-sm" />
-                                )}
-                                <CardHeader className="p-1.5 text-center bg-slate-950/60 border-b border-slate-900/40">
-                                    <CardTitle className={`text-[10px] font-bold tracking-tight truncate transition-colors
-                                        ${isSelected ? 'text-orange-400' : 'text-slate-400 group-hover/card:text-slate-200'}`}>
-                                        {a.name}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="flex justify-center p-2.5 bg-transparent">
-                                    <div className={`relative rounded-full p-0.5 transition-all duration-300 border
-                                        ${isSelected ? 'border-orange-400 scale-110 shadow-sm shadow-orange-400/20' : 'border-slate-800'}`}>
-                                        <Image
-                                            src={a.imageUrl}
-                                            alt={a.name}
-                                            height={44}
-                                            width={44}
-                                            className="rounded-full bg-slate-950 object-cover"
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
+                <AvatarGrid avatarId={avatarId} setAvatarId={setAvatarId} />
             </div>
-
-            {/* Interactive Neon Dispatch Call Button Trigger */}
             <Button
                 type='submit'
                 disabled={!userName.trim() || avatarId === 0}

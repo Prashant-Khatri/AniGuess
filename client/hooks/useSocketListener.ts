@@ -4,50 +4,36 @@ import { FeedMessageData } from "@/components/LiveFeedPanel";
 import { GameErrorToast, GameStartedToast, JoinErrorToast, JoinSuccessToast, KickedFromRoomToast, PlayAgainSuccessToast, PlayerJoinedToast, PlayerLeavedToast, PlayerOfflineToast, PlayerRejoinToast, ReadyToPlayAgain, RoomCreatedToast, RoomDisbandedToast, SystemMessageToast } from "@/components/Toast";
 import { useGameStore } from "@/store/game.store";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import toast from "react-hot-toast";
 import { Socket } from "socket.io-client";
 
 export const useSocketListener = (socket: Socket) => {
     const router = useRouter()
-    const currentStore = useGameStore.getState()
-    const {
-        setStatus,
-        setIntermissionData,
-        setRound,
-        setImageUrl,
-        setHint1,
-        setHint2,
-        setShowAnswerPhase,
-        setEndGameData,
-        setFeedMessagesCollection,
-        setRemainingTime,
-        setPlayers,
-        setTotalRounds,
-        setGuessTime,
-        setImagesInOneRound,
-        setMaxPlayers,
-        setHasReadiedUp,
-        getAdminIdandAvatar,
-        setAdminId,
-        setIsAdmin,
-        setIsRefreshing
-    } = currentStore
-    // const endGameData=currentStore.endGameData
-    // setStatus('playing');
-    // setIntermissionData(null);
-    // setRound(currentRound);
-    // setImageUrl(imageUrl);
-    // setHint1("");
-    // setHint2("");
+    const setStatus = useGameStore((s) => s.setStatus);
+    const setIntermissionData = useGameStore((s) => s.setIntermissionData);
+    const setRound = useGameStore((s) => s.setRound);
+    const setImageUrl = useGameStore((s) => s.setImageUrl);
+    const setHint1 = useGameStore((s) => s.setHint1);
+    const setHint2 = useGameStore((s) => s.setHint2);
+    const setShowAnswerPhase = useGameStore((s) => s.setShowAnswerPhase);
+    const setEndGameData = useGameStore((s) => s.setEndGameData);
+    const setFeedMessagesCollection = useGameStore((s) => s.setFeedMessagesCollection);
+    const setRemainingTime = useGameStore((s) => s.setRemainingTime);
+    const setPlayers = useGameStore((s) => s.setPlayers);
+    const setTotalRounds = useGameStore((s) => s.setTotalRounds);
+    const setGuessTime = useGameStore((s) => s.setGuessTime);
+    const setImagesInOneRound = useGameStore((s) => s.setImagesInOneRound);
+    const setMaxPlayers = useGameStore((s) => s.setMaxPlayers);
+    const setHasReadiedUp = useGameStore((s) => s.setHasReadiedUp);
+    const getAdminIdandAvatar = useGameStore((s) => s.getAdminIdandAvatar);
+    const setAdminId = useGameStore((s) => s.setAdminId);
+    const setIsAdmin = useGameStore((s) => s.setIsAdmin);
+    const setIsRefreshing = useGameStore((s) => s.setIsRefreshing);
     const connectListener = () => {
-        console.log('🔄 Initializing Socket Gateway on Home Page...');
         const onConnect = () => {
-            console.log("🟢 Connected to backend! My ID is:", socket.id);
+            console.log("Connected to backend! My ID is:", socket.id);
         };
         socket.on("connect", onConnect);
         if (!socket.connected) {
-            console.log("Socket is not connected : goint to connect")
             socket.connect();
         } else {
             onConnect();
@@ -58,15 +44,11 @@ export const useSocketListener = (socket: Socket) => {
     }
     const disconnectListener = () => {
         const onDisconnect = () => {
-            console.log("🔴 Disconnected from backend server.");
+            console.log("Disconnected from backend server.");
         };
-
-        // 1. Attach listeners BEFORE invoking the connection call
         socket.on("disconnect", onDisconnect);
         return () => {
             socket.off("disconnect", onDisconnect);
-            // NOTE: We do NOT call socket.disconnect() here so that the socket connection
-            // stays alive as the user moves from the home page to the dynamic game room page!
         };
     }
     const gameErrorListener = () => {
@@ -79,7 +61,6 @@ export const useSocketListener = (socket: Socket) => {
     }
     const kickedFromRoomListener = () => {
         socket.on('kicked_from_room', (data) => {
-            console.log("Inside listener kicked from room")
             KickedFromRoomToast()
             router.push('/');
         });
@@ -124,12 +105,9 @@ export const useSocketListener = (socket: Socket) => {
             setIntermissionData(data);
             setStatus('intermission');
             setShowAnswerPhase(true);
-
-            // Auto flip intermission views from Answer Canvas to Turn Scores after 4.5 seconds
             const phaseTimer = setTimeout(() => {
                 setShowAnswerPhase(false);
             }, 4000);
-
             return () => clearTimeout(phaseTimer);
         });
         return () => {
@@ -138,12 +116,9 @@ export const useSocketListener = (socket: Socket) => {
     }
     const gameEndedListener = () => {
         socket.on('game_ended', (data: EndGameData) => {
-            console.log("Has received endgame data listener (frontend) : ", data)
             setHasReadiedUp(false)
             setEndGameData(data);
             setStatus('ended');
-            // const currentStoreState = useGameStore.getState();
-            // console.log("Fresh Store State Snapshot after sync: ", currentStoreState.endGameData);
         });
         return () => {
             socket.off('game_ended')
@@ -192,18 +167,11 @@ export const useSocketListener = (socket: Socket) => {
             socket.off('join_error');
         };
     }
-    // inside hooks/useSocketListener.ts
     const feedMessageListener = () => {
         socket.on('feed_message', (data: FeedMessageData) => {
             const { userName, systemMsg, message } = data;
             const uniqueMessageId = `${Date.now()}-${Math.random()}`;
-
-            // Functional state check prevents appending duplications during fast processing ticks
             setFeedMessagesCollection((prev) => {
-                // Safeguard check against double-processing state buffers
-                // if (prev.some(m => m.userName === userName && m.guesss === message && Date.now() - parseFloat(m.id) < 100)) {
-                //     return prev;
-                // }
                 return [
                     {
                         id: uniqueMessageId,
@@ -213,7 +181,6 @@ export const useSocketListener = (socket: Socket) => {
                     ...prev,
                 ];
             });
-
             if (systemMsg) {
                 SystemMessageToast(message);
             }
@@ -224,8 +191,6 @@ export const useSocketListener = (socket: Socket) => {
     }
     const roomStateUpdateListener = () => {
         socket.on('room_state_update', (data: IPlayers[]) => {
-            console.log("Mila hai abhi ek : ", data)
-            // Automatically keep the roster synchronized on any socket updates
             setPlayers(data);
         });
         return () => {
@@ -261,7 +226,6 @@ export const useSocketListener = (socket: Socket) => {
             value: number
         }) => {
             const { key, value } = data
-            console.log('Inside config updated listener (frontend) : ', key, value)
             if (key === 'totalRounds') {
                 setTotalRounds(value)
             }
@@ -286,10 +250,6 @@ export const useSocketListener = (socket: Socket) => {
             const uniqueMessageId = `${Date.now()}-${Math.random()}`;
             const message = `${userName} joined the game`
             setFeedMessagesCollection((prev) => {
-                // Safeguard check against double-processing state buffers
-                // if (prev.some(m => m.userName === userName && m.guesss === message && Date.now() - parseFloat(m.id) < 100)) {
-                //     return prev;
-                // }
                 return [
                     {
                         id: uniqueMessageId,
@@ -317,37 +277,12 @@ export const useSocketListener = (socket: Socket) => {
         }
     }
     const playAgainToggleSuccessListener = () => {
-        // FIXED: Destructure tracking 'userId' instead of raw temporary connection 'socketId'
-        socket.on('play_again_toggle_success', (data: { socketId: string, userName: string }) => {
-            const { socketId, userName } = data;
-            console.log("Inside play again toggle success listener (frontend)", socketId, userName)
-            const endGameData = useGameStore.getState().endGameData
-            console.log("End game data is : ", endGameData)
-
-            // const currentStoreState = useGameStore.getState();
-            // const newEndGameData=currentStoreState.endGameData
-            // console.log("Fresh Store State Snapshot after sync: ", newEndGameData);
-
-            if (endGameData === null) return;
-
-            const newLeaderboard = endGameData.finalLeaderboard.map((p) => {
-                if (p.userId === socketId) {
-                    return { ...p, hasReadiedUp: true };
-                }
-                return p;
-            });
-            console.log("new leader board", newLeaderboard)
-
-            // Update the complete data block by passing it directly to the store setter
-            setEndGameData({
-                finalLeaderboard: newLeaderboard,
-            });
-            console.log("New End game data : ", endGameData)
-            // console.log("new game data by ai :",newEndGameData)
-
+        socket.on('play_again_toggle_success', (data: { endGamePayload: EndGameData, userName: string }) => {
+            const { endGamePayload, userName } = data;
+            console.log("Inside play again toggle success lsitener : ",endGamePayload,userName)
+            setEndGameData(endGamePayload)
             ReadyToPlayAgain(userName);
         });
-
         return () => {
             socket.off('play_again_toggle_success');
         };
@@ -382,22 +317,20 @@ export const useSocketListener = (socket: Socket) => {
     }
     const playerOfflineListener = () => {
         socket.on('player_offline', (data: { socketId: string }) => {
-            const {socketId}=data
-            let userName=""
-            let showToast=true
-            const players : IPlayers[]=useGameStore.getState().players
-            const updatedPlayers = players.map((p)=>{
-                if(p.socketId===socketId){
-                    userName=p.userName
-                    showToast=false
-                    return {...p,isOnline : false}
+            const { socketId } = data
+            let userName = ""
+            const players: IPlayers[] = useGameStore.getState().players
+            const updatedPlayers = players.map((p) => {
+                if (p.socketId === socketId) {
+                    userName = p.userName
+                    return { ...p, isOnline: false }
                 }
                 return p
             })
             setPlayers(updatedPlayers)
-            if(userName && showToast) PlayerOfflineToast(userName)
+            if (userName) PlayerOfflineToast(userName)
         })
-        return ()=>{
+        return () => {
             socket.off('player_offline')
         }
     }
@@ -410,7 +343,7 @@ export const useSocketListener = (socket: Socket) => {
             hint2: string,
             freshPlayers: IPlayers[],
             currentCharacterUrl: string,
-            isAdmin : boolean
+            isAdmin: boolean
         }) => {
             const {
                 status,
@@ -429,11 +362,11 @@ export const useSocketListener = (socket: Socket) => {
             if (status === 'ended') {
                 socket.emit('sync_ended_data', { userId })
             }
-            if(isAdmin){
+            if (isAdmin) {
                 setIsAdmin(true)
                 setAdminId(socket.id as string)
             }
-            console.log('Inside rejoin success (listener) : ',data)
+            console.log('Inside rejoin success (listener) : ', data)
             setStatus(status)
             setRound(currentRound)
             setPlayers(freshPlayers)
@@ -443,16 +376,20 @@ export const useSocketListener = (socket: Socket) => {
             setImageUrl(currentCharacterUrl)
             setIsRefreshing(false)
         })
-        return ()=>{
+        return () => {
             socket.off('rejoin_success')
         }
     }
     const endedDataSyncedListener = () => {
         socket.on('ended_data_synced', (data: EndGameData) => {
-            console.log("I am inside endedData sync",data)
+            const currentPlayer = data.finalLeaderboard.filter((p) => p.userId === socket.id)
+            console.log("I am inside endedData sync", data, currentPlayer)
+            if (currentPlayer && currentPlayer[0] && currentPlayer[0].hasReadiedUp) {
+                setHasReadiedUp(true)
+            }
             setEndGameData(data)
         })
-        return ()=>{
+        return () => {
             socket.off('ended_data_synced')
         }
     }
@@ -460,30 +397,30 @@ export const useSocketListener = (socket: Socket) => {
         socket.on('intermission_data_synced', (data: IntermissionData) => {
             setIntermissionData(data)
         })
-        return ()=>{
+        return () => {
             socket.off('intermission_data_synced')
         }
     }
-    const playerRejoinListener=()=>{
-        socket.on('player_rejoin',(data : {
-            freshPlayers : IPlayers[],
-            userName : string
-        })=>{
-            const {freshPlayers,userName}=data
+    const playerRejoinListener = () => {
+        socket.on('player_rejoin', (data: {
+            freshPlayers: IPlayers[],
+            userName: string
+        }) => {
+            const { freshPlayers, userName } = data
             setPlayers(freshPlayers)
-            console.log("Player rejoin listener (frontend) : ",freshPlayers)
+            console.log("Player rejoin listener (frontend) : ", freshPlayers)
             PlayerRejoinToast(userName)
         })
-        return ()=>{
+        return () => {
             socket.off('player_rejoin')
         }
     }
 
-    const setIsRefreshingListener=()=>{
-        socket.on('set_is_refreshing',(data)=>{
+    const setIsRefreshingListener = () => {
+        socket.on('set_is_refreshing', (data) => {
             setIsRefreshing(true)
         })
-        return ()=>{
+        return () => {
             socket.off('set_is_refreshing')
         }
     }

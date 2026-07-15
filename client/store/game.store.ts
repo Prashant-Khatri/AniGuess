@@ -5,8 +5,6 @@ import { AVATARS } from "@/lib/avatar";
 import { socket } from "@/lib/socket";
 import axios, { AxiosError } from "axios";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
 import { create } from "zustand";
 
 interface GameStore {
@@ -27,7 +25,7 @@ interface GameStore {
   showAnswerPhase: boolean;
   setShowAnswerPhase: (show: boolean) => void;
   round: number;
-  setRound: (round: number | ((prev: number) => number)) => void; // Supports direct values or functions like setRound(prev => prev + 1)
+  setRound: (round: number | ((prev: number) => number)) => void;
   imageUrl: string;
   setImageUrl: (url: string) => void;
   hint1: string;
@@ -40,7 +38,7 @@ interface GameStore {
   setTakenAvatars: (avatars: number[]) => void;
   roomError: string;
   setRoomError: (error: string) => void;
-  checkTakenAvatars: (roomId: string) => Promise<void>; // Added roomId argument here
+  checkTakenAvatars: (roomId: string) => Promise<void>;
   feedMessagesCollection: FeedMessage[];
   setFeedMessagesCollection: (messages: FeedMessage[] | ((prev: FeedMessage[]) => FeedMessage[])) => void;
   players: IPlayers[];
@@ -63,7 +61,6 @@ interface GameStore {
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
-  // --- Initial States ---
   hostName: "",
   avatarUrl: "",
   adminId: "",
@@ -89,7 +86,6 @@ export const useGameStore = create<GameStore>()((set) => ({
   isRefreshing : false,
   isValidating : true,
 
-  // --- Actions / Setters ---
   setHostName: (name) => set({ hostName: name }),
   setAvatarUrl: (url) => set({ avatarUrl: url }),
   setAdminId: (id) => set({ adminId: id }),
@@ -98,48 +94,40 @@ export const useGameStore = create<GameStore>()((set) => ({
   setIntermissionData: (intermissionData) => set({ intermissionData }),
   setEndGameData: (endGameData) => set({ endGameData }),
   setShowAnswerPhase: (showAnswerPhase) => set({ showAnswerPhase }),
-  
   setRound: (round) =>
     set((state) => ({
       round: typeof round === "function" ? round(state.round) : round,
     })),
-    
   setImageUrl: (imageUrl) => set({ imageUrl }),
   setHint1: (hint1) => set({ hint1 }),
   setHint2: (hint2) => set({ hint2 }),
-  
   setRemainingTime: (remainingTime) =>
     set((state) => ({
       remainingTime: typeof remainingTime === "function" ? remainingTime(state.remainingTime) : remainingTime,
     })),
-    
   setTakenAvatars: (takenAvatars) => set({ takenAvatars }),
   setRoomError: (roomError) => set({ roomError }),
-  
   setFeedMessagesCollection: (messages) =>
     set((state) => ({
       feedMessagesCollection:
         typeof messages === "function" ? messages(state.feedMessagesCollection) : messages,
     })),
-    
   setPlayers: (players) => set({ players }),
   setGuessTime : (time : number)=>set({guessTime : time}),
   setImagesInOneRound : (images : number)=>set({imagesInOneRound : images}),
   setMaxPlayers : (players : number)=>set({maxPlayers : players}),
   setTotalRounds : (rounds : number)=>set({totalRounds : rounds}),
   setHasReadiedUp : (flag : boolean)=>set({hasReadiedUp : flag}),
+  setIsRefreshing : (flag : boolean)=>set({isRefreshing : flag}),
 
-  // --- Async Operations ---
   checkTakenAvatars: async (roomId: string) => {
     try {
       const res = await axios.get(`http://localhost:5000/api/taken-avatars/${roomId}`);
-      // Fallback map layout matching your original codebase structure
       const numericAvatars = res.data.takenAvatars.map((id: string) => Number(id));
       set({ takenAvatars: numericAvatars, roomError: "" });
     } catch (error) {
       const axiosError = error as AxiosError;
-      console.log(axiosError)
-      console.error("Inside join room error ", axiosError.response);
+      console.log(axiosError.response?.data)
       set({ roomError: axiosError.message, takenAvatars: [] });
     }
   },
@@ -148,22 +136,18 @@ export const useGameStore = create<GameStore>()((set) => ({
     try {
       const res = await axios.get(`http://localhost:5000/api/get-admin/${targetRoomId}`);
       const { adminId, avatarId, userName } = res.data;
-      console.log("After refresh inside get adminIdavatar in store : ",adminId)
-      set({adminId,hostName : userName})
-      
-      // Target correct image URL structure out of layout matrix index array
-      const foundAvatar = AVATARS.find(a => a.id === Number(avatarId));
-      set({avatarUrl : foundAvatar ? foundAvatar.imageUrl : "https://api.dicebear.com/7.x/bottts/svg?seed=host"});
-      
-      if (adminId === socket.id) {
-        console.log("Current socket id is getadminIdavatar : ",socket.id)
-        set({isAdmin : true})
-      }
+      const foundAvatar = AVATARS.find((a) => a.id === Number(avatarId));
+      const fallbackUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=host";
+      set({
+        adminId,
+        hostName: userName,
+        avatarUrl: foundAvatar ? foundAvatar.imageUrl : fallbackUrl,
+        isAdmin: adminId === socket.id
+      });
     } catch (error) {
-      toast.error("Failed to sync structural room admin vectors.");
+      console.log("Failed to sync structural room admin vectors.");
     }
   },
-  setIsRefreshing : (flag : boolean)=>set({isRefreshing : flag}),
   verifyEntry : async(roomId : string,userId : string,router : AppRouterInstance)=>{
     set({isValidating : true})
     try {

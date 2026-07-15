@@ -7,19 +7,11 @@ import { getAdmin, getTakenAvatars, isAuthorized } from './controllers/redis.con
 
 dotenv.config()
 const PORT= process.env.PORT || 8000
-console.log("REDIS_URL : ",process.env.REDIS_URL)
-
 app.use(cors({
     origin : ['http://localhost:3000'],
     methods : ['GET','POST']
 }))
 app.use(express.json())
-
-
-//saara kaam kaaz idhar
-// app.use('/',(req,res)=>{
-//     res.send('Tera bhai seedhe maut')
-// })
 
 app.get('/api/taken-avatars/:roomId',getTakenAvatars)
 app.get('/api/get-admin/:roomId',getAdmin)

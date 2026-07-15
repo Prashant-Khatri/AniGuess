@@ -1,4 +1,4 @@
-import {Schema,Document, model} from 'mongoose'
+import {Schema, model} from 'mongoose'
 
 export interface ICharacter{
     characterName : string;
@@ -41,7 +41,5 @@ const characterSchema=new Schema<ICharacter>({
 },{timestamps : true})
 
 export const Character=model<ICharacter>('Character',characterSchema)
-
-//data : name,avatar,rounds (frontend)
 
 

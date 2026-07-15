@@ -1,6 +1,5 @@
 'use client'
-import React, { useEffect, useState } from "react";
-import { IPlayers } from "./DisplayScreen";
+import React, { useEffect } from "react";
 import { socket } from "@/lib/socket";
 import { useGameHandler } from "@/hooks/useGameHandler";
 import { useGameStore } from "@/store/game.store";
@@ -8,44 +7,28 @@ import { useSocketListener } from "@/hooks/useSocketListener";
 
 interface RosterPanelProps {
   roomId: string;
-  // currentSocketId: string;
-  // isAdmin: boolean;
-  // status: string; // "lobby" | "playing" | "intermission" | "ended"
 }
 
 export default function RosterPanel({ roomId }: RosterPanelProps) {
-  const { isAdmin, status, players } = useGameStore()
-  const { roomStateUpdateListener } = useSocketListener(socket)
-  // const [players, setPlayers] = useState<IPlayers[]>([]);
-  const { handleKickAction, requestRoomData } = useGameHandler(socket)
-
+  const isAdmin = useGameStore((state) => state.isAdmin);
+  const status = useGameStore((state) => state.status);
+  const players = useGameStore((state) => state.players);
+  const { roomStateUpdateListener } = useSocketListener(socket);
+  const { handleKickAction, requestRoomData } = useGameHandler(socket);
   useEffect(() => {
     if (!roomId) return;
-
-    // Bind the listener and capture its cleanup function
     const cleanRoomStateUpdate = roomStateUpdateListener();
-
-    // Fire your data fetch request to the server matrix
     requestRoomData(roomId);
-
-    // Clean up the subscription on unmount to prevent state sync duplications
     return () => {
       if (cleanRoomStateUpdate) cleanRoomStateUpdate();
     };
-  }, [roomId]); // Bound to roomId so it securely refetches if the room changes
-
-  // Compute total dynamic stats to show on the header strip
+  }, [roomId]);
   const connectedCount = players.filter(p => p.isOnline).length;
-
   return (
     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col backdrop-blur-md shadow-xl min-h-[380px] max-h-[420px] relative overflow-hidden group">
-
-      {/* Decorative Left Neon Border Strip */}
       <div className={`absolute top-0 left-0 h-full w-[3px] transition-colors duration-500
         ${status === 'lobby' ? 'bg-indigo-500' : status === 'playing' ? 'bg-emerald-500' : 'bg-amber-500'}`}
       />
-
-      {/* Roster Header */}
       <div className="mb-3 flex items-center justify-between border-b border-slate-800/80 pb-2">
         <h3 className="text-xs uppercase font-mono font-black tracking-widest text-slate-400 flex items-center gap-1.5">
           👥 Node Roster <span className="text-[10px] text-slate-500 font-normal">({connectedCount}/{players.length})</span>
@@ -58,8 +41,6 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
           {status} phase
         </span>
       </div>
-
-      {/* Scrollable Player List Element Wrapper */}
       <div className="space-y-2 overflow-y-auto flex-1 pr-1 scrollbar-thin scrollbar-thumb-slate-800">
         {players.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center py-12">
@@ -76,7 +57,6 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
                   ${player.hasGuessed && status === 'playing' ? 'border-emerald-500/30 shadow-md shadow-emerald-500/5 bg-emerald-950/5' : 'border-slate-900'}
                   ${!player.isOnline ? 'opacity-30 filter grayscale' : 'opacity-100'}`}
               >
-                {/* Player Profile Info Segment */}
                 <div className="flex items-center space-x-3 min-w-0">
                   <div className="relative w-9 h-9 rounded-full border border-slate-800 overflow-hidden bg-slate-900 flex-shrink-0">
                     <img
@@ -84,14 +64,12 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
                       alt={player.userName}
                       className="object-cover w-full h-full"
                     />
-                    {/* Active Gameplay Guess Success Confirmation Overlay */}
                     {player.hasGuessed && status === 'playing' && (
                       <div className="absolute inset-0 bg-emerald-500/20 backdrop-blur-[0.5px] flex items-center justify-center text-emerald-400 font-bold text-xs font-mono">
                         ✓
                       </div>
                     )}
                   </div>
-
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className={`font-mono font-bold text-xs truncate max-w-[120px] uppercase tracking-wide ${isMe ? 'text-indigo-400 font-black' : 'text-slate-200'}`}>
@@ -104,8 +82,6 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
                         <span className="text-[8px] font-mono font-black bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-1 rounded">YOU</span>
                       )}
                     </div>
-
-                    {/* DYNAMIC SCENARIO PROPERTY RENDERING LINES */}
                     {status !== 'lobby' && (
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] font-mono font-black text-indigo-400 tracking-wider">
@@ -125,10 +101,7 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
                     )}
                   </div>
                 </div>
-
-                {/* Interactive Controls & Status Tags */}
                 <div className="flex items-center space-x-2">
-                  {/* Status Badges conditional display */}
                   {status === 'playing' && (
                     <span className={`text-[8px] uppercase font-mono font-black tracking-wider px-1.5 py-0.5 border rounded-md transition-colors
                       ${player.hasGuessed
@@ -139,8 +112,6 @@ export default function RosterPanel({ roomId }: RosterPanelProps) {
                       {player.hasGuessed ? 'LOCKED' : 'THINKING'}
                     </span>
                   )}
-
-                  {/* Administrative Exclusion Kick Button (Shown exclusively to host, cant kick self) */}
                   {isAdmin && !isMe && (
                     <button
                       onClick={() => handleKickAction(roomId, player.socketId)}

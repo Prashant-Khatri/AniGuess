@@ -1,9 +1,8 @@
 import express from 'express'
 import { createServer } from 'http'
 import { Server, Socket } from 'socket.io'
-import { changeRoomConfig, createRoom, IPlayers, joinRoom, syncRoomStateOnDemand } from '../controllers/room.controllers.js'
+import { changeRoomConfig, createRoom, joinRoom, syncRoomStateOnDemand } from '../controllers/room.controllers.js'
 import { disbandRoom, disconnect, handlePlayerGuess, kickPlayer, leaveRoom, playAgain, playAgainToggle, reJoinRoom, startGame, syncEndGameData, syncIntermissionData } from '../controllers/game.controllers.js'
-import { redis } from '../config/redis.js'
 
 const app = express()
 const server = createServer(app)

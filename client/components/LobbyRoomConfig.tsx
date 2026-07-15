@@ -7,27 +7,19 @@ import { socket } from "@/lib/socket";
 import { useGameStore } from "@/store/game.store";
 
 function LobbyRoomConfig({ roomId }: { roomId: string }) {
-  // 1. Read everything directly from the Zustand store
-  const { 
-    totalRounds, 
-    maxPlayers, 
-    guessTime, 
-    imagesInOneRound, 
-    isAdmin 
-  } = useGameStore();
-
+  const totalRounds = useGameStore((state) => state.totalRounds);
+  const maxPlayers = useGameStore((state) => state.maxPlayers);
+  const guessTime = useGameStore((state) => state.guessTime);
+  const imagesInOneRound = useGameStore((state) => state.imagesInOneRound);
+  const isAdmin = useGameStore((state) => state.isAdmin);
   const { startGame } = useGameHandler(socket);
   const { configUpdatedListener } = useSocketListener(socket);
   const { changeRoomConfig } = useRoomHandler(socket);
-
-  // 2. Fire the change straight to the backend configuration handler
   const handleSettingChange = (key: string) => (
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     e.preventDefault();
     const newValue = Number(e.target.value);
-    
-    // Send to backend -> backend broadcasts -> your socket listener updates your Zustand store
     changeRoomConfig({ key, value: newValue, roomId });
   };
 
@@ -45,10 +37,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
 
   return (
     <div className="w-full bg-slate-900/60 border border-slate-800 backdrop-blur-xl rounded-2xl p-5 sm:p-6 relative overflow-hidden shadow-2xl">
-      {/* Top Subtle Accent Strip */}
       <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-      
-      {/* Lobby Configuration Matrix Title header */}
       <div className="flex items-center justify-between mb-6 border-b border-slate-800/60 pb-3">
         <div className="flex items-center space-x-2">
           <span className="text-indigo-400 text-lg animate-pulse">🛠️</span>
@@ -60,11 +49,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
           NODE://{roomId || "NULL"}
         </span>
       </div>
-
-      {/* Configuration Inputs Selection Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* Max Players Selector */}
         <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-indigo-500/30 transition">
           <div className="flex items-center space-x-3">
             <span className="text-xl filter drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">👥</span>
@@ -74,18 +59,16 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             </div>
           </div>
           <select
-            value={maxPlayers} // Read directly from store
+            value={maxPlayers}
             onChange={handleSettingChange("maxPlayers")}
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-indigo-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
-            {[2, 4, 6, 8, 12, 16].map((num) => (
+            {[2, 4, 6, 8].map((num) => (
               <option key={num} value={num}>{num} Members</option>
             ))}
           </select>
         </div>
-
-        {/* Max Rounds Selector */}
         <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-purple-500/30 transition">
           <div className="flex items-center space-x-3">
             <span className="text-xl filter drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">🎯</span>
@@ -95,18 +78,16 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             </div>
           </div>
           <select
-            value={totalRounds} // Read directly from store
+            value={totalRounds}
             onChange={handleSettingChange("totalRounds")}
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-purple-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-purple-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
-            {[1,3, 5, 7, 10].map((num) => (
+            {[1, 3, 5, 7, 10].map((num) => (
               <option key={num} value={num}>{num} Rounds</option>
             ))}
           </select>
         </div>
-
-        {/* Guess Time Limit Selector */}
         <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-amber-500/30 transition">
           <div className="flex items-center space-x-3">
             <span className="text-xl filter drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">⏱️</span>
@@ -116,7 +97,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             </div>
           </div>
           <select
-            value={guessTime} // Read directly from store
+            value={guessTime}
             onChange={handleSettingChange("guessTime")}
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-amber-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
@@ -126,8 +107,6 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             ))}
           </select>
         </div>
-
-        {/* Images per Round Selector */}
         <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-rose-500/30 transition">
           <div className="flex items-center space-x-3">
             <span className="text-xl filter drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">🖼️</span>
@@ -137,7 +116,7 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
             </div>
           </div>
           <select
-            value={imagesInOneRound} // Read directly from store
+            value={imagesInOneRound}
             onChange={handleSettingChange("imagesInOneRound")}
             disabled={!isAdmin}
             className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-rose-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-rose-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
@@ -149,8 +128,6 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
         </div>
 
       </div>
-
-      {/* Host Control Actions Gateway */}
       <div className="mt-6 pt-4 border-t border-slate-800/60 flex flex-col items-center justify-center">
         {isAdmin ? (
           <button

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+'use client'
+import React, { useState, useEffect, useRef } from 'react';
 import { Field, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Avatar, AVATARS } from '@/lib/avatar';
@@ -6,8 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import Image from 'next/image';
 import { Button } from './ui/button';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
-import axios, { AxiosError } from 'axios';
 import { useRoomHandler } from '@/hooks/useRoomHandler';
 import { socket } from '@/lib/socket';
 import { useGameStore } from '@/store/game.store';
@@ -18,28 +17,24 @@ export default function JoinRoomForm() {
     const [userName, setUserName] = useState<string>("");
     const [roomId, setRoomId] = useState<string>("");
     const [avatarId, setAvatarId] = useState<number>(0);
-    const { takenAvatars, roomError, checkTakenAvatars, setTakenAvatars, setRoomError } = useGameStore()
+    const takenAvatars = useGameStore((state) => state.takenAvatars);
+    const roomError = useGameStore((state) => state.roomError);
+    const checkTakenAvatars = useGameStore((state) => state.checkTakenAvatars);
+    const setTakenAvatars = useGameStore((state) => state.setTakenAvatars);
+    const setRoomError = useGameStore((state) => state.setRoomError);
+    const userIdRef = useRef<string | null>(null);
     const { joinSuccessListener, joinErrorListener } = useSocketListener(socket)
-    // const [takenAvatars, setTakenAvatars] = useState<number[]>([]);
-    // const [roomError, setRoomError] = useState<string>("");
-    const router = useRouter();
-
-    //  const checkTakenAvatars=async()=>{
-    //     try {
-    //         const res=await axios.get(`http://localhost:5000/api/taken-avatars/${roomId}`)
-    //         const numericAvatars = res.data.takenAvatars.map((id: string) => Number(id));
-    //         setTakenAvatars(numericAvatars)
-    //         setRoomError("")
-    //     } catch (error) {
-    //         const axiosError=error as AxiosError
-    //         console.log("Inside join room error ",axiosError.response)
-    //         setRoomError(axiosError.message)
-    //         setTakenAvatars([])
-    //     }
-    // }
-
     useEffect(() => {
-        // Query taken items from Redis as soon as room code matches structural limit
+        if (typeof window !== 'undefined') {
+            let userId = localStorage.getItem('game_user_id');
+            if (!userId) {
+                userId = 'usr_' + Math.random().toString(36).substring(2, 11);
+                localStorage.setItem('game_user_id', userId);
+            }
+            userIdRef.current = userId;
+        }
+    }, []);
+    useEffect(() => {
         if (roomId.length === 6) {
             checkTakenAvatars(roomId)
         } else {
@@ -47,39 +42,24 @@ export default function JoinRoomForm() {
             setRoomError("");
         }
     }, [roomId]);
-
     useEffect(() => {
-        // Bind the listeners and capture their cleanup functions
         const cleanJoinSuccess = joinSuccessListener();
         const cleanJoinError = joinErrorListener();
-
-        // Clean up the event listeners on unmount or before re-running
         return () => {
             if (cleanJoinSuccess) cleanJoinSuccess();
             if (cleanJoinError) cleanJoinError();
         };
-    }, []); // Remove [router, roomId] so it binds exactly ONCE on mount
-
+    }, []);
     const handleJoin = (e: React.FormEvent) => {
         e.preventDefault();
         if (!userName.trim() || roomId.length !== 6 || avatarId === 0 || roomError) {
             return toast.error("Please fill all properties correctly.");
         }
-
-        let userId = localStorage.getItem('game_user_id');
-        if (!userId) {
-            userId = 'usr_' + Math.random().toString(36).substring(2, 11);
-            localStorage.setItem('game_user_id', userId);
-        }
-        joinRoom(userName, roomId, avatarId, userId)
+        joinRoom(userName, roomId, avatarId, userIdRef.current || "")
     };
-
     return (
         <form onSubmit={handleJoin} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-indigo-500/30 rounded-2xl shadow-xl shadow-indigo-500/5 relative backdrop-blur-md overflow-hidden group">
-            {/* Top Decorative Indigo Cyber-Glow Accent */}
             <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
-
-            {/* Room Code Target Input Field */}
             <Field className="space-y-1.5">
                 <FieldLabel htmlFor="join-room-id" className="text-xs uppercase font-extrabold tracking-wider text-slate-300 group-focus-within:text-indigo-400 transition-colors">
                     🛰️ Broadcast Channel Code
@@ -103,8 +83,6 @@ export default function JoinRoomForm() {
                     </p>
                 )}
             </Field>
-
-            {/* Username Selection Block */}
             <Field className="space-y-1.5">
                 <FieldLabel htmlFor="join-username" className="text-xs uppercase font-extrabold tracking-wider text-slate-300">
                     ✦ Player Codename
@@ -118,8 +96,6 @@ export default function JoinRoomForm() {
                     className="bg-slate-900/60 border-2 border-slate-800 focus:border-indigo-500 focus:shadow-md focus:shadow-indigo-500/10 focus:ring-0 uppercase font-mono tracking-wide placeholder:text-slate-600 text-sm text-white rounded-xl transition-all duration-200"
                 />
             </Field>
-
-            {/* Avatar Picker Gallery Registry */}
             <div className="space-y-3">
                 <label className="text-xs uppercase font-extrabold tracking-wider text-slate-300 block">
                     🧬 Claim Profile Frame
@@ -130,7 +106,6 @@ export default function JoinRoomForm() {
                         const isSelected = avatarId === a.id;
                         const isAnySelected = avatarId !== 0;
                         const isGreyedOut = (isAnySelected && !isSelected) || isTaken;
-
                         return (
                             <Card
                                 key={a.id}
@@ -147,7 +122,6 @@ export default function JoinRoomForm() {
                                     ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
                                 `}
                             >
-                                {/* Micro Corner Ribbon Tag Indicators */}
                                 {isTaken ? (
                                     <span className="absolute top-0 right-0 bg-red-600/90 text-[7px] text-white px-1 py-0.5 font-black uppercase rounded-bl-md tracking-wider shadow-sm z-20">
                                         LOCKED
@@ -186,8 +160,6 @@ export default function JoinRoomForm() {
                     })}
                 </div>
             </div>
-
-            {/* Submition Dispatch Gateway Button */}
             <Button
                 type='submit'
                 disabled={!!roomError || avatarId === 0 || !userName.trim() || roomId.length < 4}

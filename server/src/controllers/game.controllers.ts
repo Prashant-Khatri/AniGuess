@@ -1,13 +1,9 @@
 import { Server, Socket } from "socket.io";
 import { redis } from "../config/redis.js";
-import axios from "axios";
 import { Character, ICharacter } from "../models/character.models.js";
 import { IPlayers } from "./room.controllers.js";
 
 const disconnectionTimers: Record<string, NodeJS.Timeout> = {};
-
-// game_error
-// kicked_from_room
 
 export const reJoinRoom = (io: Server, socket: Socket) => {
     socket.on('rejoin_room', async (data: {
@@ -16,43 +12,44 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
     }) => {
         const { roomId, userId } = data
         const roomKey = `room:${roomId}`
-        const isFirstTimeMounting = await redis.exists(`socket_to_user:${socket.id}`)
+        const pipeline1 = redis.pipeline();
+        pipeline1.exists(`socket_to_user:${socket.id}`);
+        pipeline1.hgetall(`${roomKey}:players`);
+        pipeline1.hget(roomKey, 'adminId');
+        pipeline1.hmget(roomKey, 'status', 'currentRound', 'hint1', 'hint2', 'timerEndsAt', 'currentCharacterUrl');
+        const results = await pipeline1.exec();
+        if (!results) return;
+        const isFirstTimeMounting = results[0][1] as number;
         if (isFirstTimeMounting) return
+        const playersRaw = results[1][1] as Record<string, string> || {};
+        const adminId = results[2][1] as string | null;
+        const roomState = results[3][1] as (string | null)[];
+        const reJoiningPlayerStr = playersRaw[userId];
+        if (!reJoiningPlayerStr) return;
         socket.emit('set_is_refreshing')
-        await redis.set(`socket_to_user:${socket.id}`, userId)
-        const playersRaw = await redis.hgetall(`${roomKey}:players`)
-        const adminId = await redis.hget(roomKey, 'adminId')
-        const reJoiningPlayerStr = playersRaw[userId]
-        if (!reJoiningPlayerStr) return
         const reJoiningPlayer: IPlayers = JSON.parse(reJoiningPlayerStr)
         const previousSocketId = reJoiningPlayer.socketId
         const isAdmin = adminId === previousSocketId
-        //fetch previous socket id by redis playershash userId player.socketId and update player.socketId to new socket id then save this back in redis
-        //check if adminid===previous socket if yes then change that to new socket in roomhash
         reJoiningPlayer.isOnline = true
         reJoiningPlayer.socketId = socket.id
-        console.log("previous socket id is : ", previousSocketId)
-        await redis.hset(`${roomKey}:players`, userId, JSON.stringify(reJoiningPlayer))
+        const status = roomState[0] || 'lobby';
+        const currentRound = parseInt(roomState[1] || '1', 10);
+        const hint1 = roomState[2] || '';
+        const hint2 = roomState[3] || '';
+        const timerEndsAt = parseInt(roomState[4] || '0', 10);
+        const currentCharacterUrl = roomState[5] || '';
+        const timeLeftInSecond = Math.max(0, (timerEndsAt - Date.now()) / 1000);
+        playersRaw[userId] = JSON.stringify(reJoiningPlayer);
+        const freshPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
+        const pipeline2 = redis.pipeline();
+        pipeline2.set(`socket_to_user:${socket.id}`, userId);
+        pipeline2.hset(`${roomKey}:players`, userId, JSON.stringify(reJoiningPlayer));
         if (isAdmin) {
-            await redis.hset(`room:${roomId}`, 'adminId', socket.id)
+            pipeline2.hset(roomKey, 'adminId', socket.id);
         }
-        const [status, currentRoundStr, hint1, hint2, timerEndsAtStr, currentCharacterUrl] = await redis.hmget(
-            roomKey,
-            'status',
-            'currentRound',
-            'hint1',
-            'hint2',
-            'timerEndsAt',
-            'currentCharacterUrl'
-        );
-        const currentRound = parseInt(currentRoundStr as string)
-        const timerEndsAt = parseInt(timerEndsAtStr as string)
-        const timeLeft = timerEndsAt - Date.now()
-        const timeLeftInSecond = timeLeft / 1000
-        const freshPlayersRaw = await redis.hgetall(`room:${roomId}:players`)
-        const freshPlayers: IPlayers[] = Object.values(freshPlayersRaw).map((p) => JSON.parse(p))
-        await socket.join(roomId)
-        socket.to(roomId).emit('player_rejoin', { freshPlayers, userName: reJoiningPlayer.userName })
+        await pipeline2.exec();
+        await socket.join(roomId);
+        socket.to(roomId).emit('player_rejoin', { freshPlayers, userName: reJoiningPlayer.userName });
         socket.emit('rejoin_success', {
             status,
             currentRound,
@@ -62,17 +59,8 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
             freshPlayers,
             currentCharacterUrl,
             isAdmin
-        })
-        console.log('Rejoin success : ', status,
-            currentRound,
-            timeLeftInSecond,
-            timerEndsAt,
-            hint1,
-            hint2,
-            freshPlayers,
-            currentCharacterUrl)
+        });
         if (disconnectionTimers[userId]) {
-            console.log("Inside delete timer in rejoin :", disconnectionTimers)
             clearTimeout(disconnectionTimers[userId]);
             delete disconnectionTimers[userId];
         }
@@ -81,134 +69,145 @@ export const reJoinRoom = (io: Server, socket: Socket) => {
 
 export const syncIntermissionData = (io: Server, socket: Socket) => {
     socket.on('sync_intermission_data', async (data: { userId: string }) => {
-        const { userId } = data
-        const roomId = await redis.get(`user_to_room:${userId}`)
-        const roomKey = `room:${roomId}`
-        const status = await redis.hget(roomKey, 'status')
-        if (status !== 'intermission') {
-            return
-        }
-        //showleaderboard for client (answer and players)
-        const currentAnswer = await redis.hget(roomKey, 'currentAnswer')
-        const currentCharacterName = await redis.hget(roomKey, 'currentCharacterName')
-        const alternateName: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
-        const currentCharacterUrl = await redis.hget(roomKey, 'currentCharacterUrl')
-        const playersRaw = await redis.hgetall(`${roomKey}:players`);
-
-        // Object.entries splits the hash into an array of tuples: [userIdKey, stringifiedPlayerValue]
-        const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+        const { userId } = data;
+        const roomId = await redis.get(`user_to_room:${userId}`);
+        if (!roomId) return;
+        const roomKey = `room:${roomId}`;
+        const pipeline = redis.pipeline();
+        pipeline.hmget(
+            roomKey,
+            'status',
+            'currentCharacterName',
+            'alternateAnswer',
+            'currentCharacterUrl',
+            'currentAnswer'
+        );
+        pipeline.hgetall(`${roomKey}:players`);
+        const results = await pipeline.exec();
+        if (!results) return;
+        const roomFields = results[0][1] as (string | null)[];
+        const playersRaw = results[1][1] as Record<string, string> || {};
+        const status = roomFields[0];
+        if (status !== 'intermission') return;
+        const currentCharacterName = roomFields[1] || '';
+        const alternateAnswerStr = roomFields[2];
+        const currentCharacterUrl = roomFields[3] || '';
+        const animeName = roomFields[4] || '';
+        const alternateNames: string[] = JSON.parse(alternateAnswerStr as string);
+        const playersList = Object.entries(playersRaw).map(([idKey, playerStr]) => {
             const parsedPlayer = JSON.parse(playerStr);
-
             return {
                 ...parsedPlayer,
-                userId: userId // Injects the Redis hash field key inside the object
+                userId: idKey
             };
         });
         const sortedPlayers = playersList.sort((a, b) => b.score - a.score);
-
-        // 4. Map into your precise IntermissionData contract layout structure
         const turnScores = sortedPlayers.map((player) => ({
-            userId: player.socketId, // Mapping socketId or unique key as userId boundary
+            userId: player.socketId,
             userName: player.userName,
             avatarId: player.avatarId,
             pointsGained: player.turnScore,
             totalScore: player.score
         }));
-
         const intermissionPayload = {
             correctAnswer: currentCharacterName,
-            alternateNames: alternateName,
+            alternateNames,
             imageUrl: currentCharacterUrl,
-            turnScores // Sent fully ordered from highest to lowest score
-            //here add the anime name also
+            animeName,
+            turnScores
         };
-
-        // 5. Transmit the payload matrix down the socket pipes
         socket.emit('intermission_data_synced', intermissionPayload);
-    })
+    });
 }
 
 export const syncEndGameData = (io: Server, socket: Socket) => {
     socket.on('sync_ended_data', async (data: { userId: string }) => {
-        const { userId } = data
-        const roomId = await redis.get(`user_to_room:${userId}`)
-        const roomKey = `room:${roomId}`
-        const status = await redis.hget(roomKey, 'status')
-        if (status !== 'ended') {
-            return
-        }
-        const playersRaw = await redis.hgetall(`${roomKey}:players`);
-        const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
+        const { userId } = data;
+        const roomId = await redis.get(`user_to_room:${userId}`);
+        if (!roomId) return;
+        const roomKey = `room:${roomId}`;
+        const pipeline = redis.pipeline();
+        pipeline.hget(roomKey, 'status');
+        pipeline.hgetall(`${roomKey}:players`);
+        const results = await pipeline.exec();
+        if (!results) return;
+        const status = results[0][1] as string | null;
+        const playersRaw = results[1][1] as Record<string, string> || {};
+        if (status !== 'ended') return;
+        const playersList = Object.entries(playersRaw).map(([idKey, playerStr]) => {
             const parsedPlayer = JSON.parse(playerStr);
             return {
                 ...parsedPlayer,
-                userId: userId // Injects the Redis hash field key inside the object
+                userId: idKey
             };
         });
-
-        // 2. SORTING MECHANISM: Sort descending high-to-low based on overall total points
-        const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
-
-        // 3. Map into the final leaderboard array tracking explicit placement numerical ranks
+        const sortedFinalStandings: IPlayers[] = playersList.sort((a, b) => b.score - a.score);
         const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
             userId: player.socketId,
             userName: player.userName,
             avatarId: player.avatarId,
             totalScore: player.score,
-            rank: index + 1,// Loop index index tracking placement values (1st, 2nd, 3rd...)
-            hasReadiedUp: false,
+            rank: index + 1,
+            hasReadiedUp: player.hasReadiedUp,
         }));
-
         const endGamePayload = {
             finalLeaderboard
         };
-        return socket.emit('ended_data_synced', endGamePayload)
-    })
-}
+        socket.emit('ended_data_synced', endGamePayload);
+    });
+};
 
 export const handlePlayerPermanentlyLeft = async (io: Server, userId: string) => {
     try {
-        console.log('I am inside handlePlaterPermanentlyleft')
-        const roomId = await redis.get(`user_to_room:${userId}`) as string
+        const roomId = await redis.get(`user_to_room:${userId}`);
+        if (!roomId) return;
         const roomKey = `room:${roomId}`;
         const playersHashKey = `${roomKey}:players`;
-        const roomExists = await redis.exists(roomKey);
+        const pipeline1 = redis.pipeline();
+        pipeline1.exists(roomKey);
+        pipeline1.hget(roomKey, 'adminId');
+        pipeline1.hgetall(playersHashKey);
+        const results1 = await pipeline1.exec();
+        if (!results1) return;
+        const roomExists = results1[0][1] as number;
         if (!roomExists) return;
-        const [adminId, playersRaw] = await Promise.all([
-            redis.hget(roomKey, 'adminId'),
-            redis.hgetall(playersHashKey)
-        ]);
+        const adminId = results1[1][1] as string | null;
+        const playersRaw = results1[2][1] as Record<string, string> || {};
         const targetPlayerRaw = playersRaw[userId];
-        if (!targetPlayerRaw) {
-            return
-        }
+        if (!targetPlayerRaw) return;
         const playerToBeRemoved: IPlayers = JSON.parse(targetPlayerRaw);
         const isAdmin = adminId === playerToBeRemoved.socketId;
         let newAdminUserName = "";
+        let newAdminSocketId: string | null = null;
         if (isAdmin) {
             const nextHost = Object.values(playersRaw)
                 .map((p) => JSON.parse(p) as IPlayers)
                 .find((p) => p.socketId !== playerToBeRemoved.socketId);
-
             if (nextHost) {
-                await redis.hset(roomKey, 'adminId', nextHost.socketId);
+                newAdminSocketId = nextHost.socketId;
                 newAdminUserName = nextHost.userName;
             }
         }
-        await Promise.all([
-            redis.hdel(playersHashKey, userId),
-            redis.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId),
-            redis.del(`user_to_room:${userId}`),
-            redis.del(`socket_to_user:${playerToBeRemoved.socketId}`)
-        ]);
         delete playersRaw[userId];
-        const remainingPlayerCount = Object.keys(playersRaw).length;
+        const remainingPlayers = Object.values(playersRaw).map((p) => JSON.parse(p) as IPlayers);
+        const remainingPlayerCount = remainingPlayers.length;
+        const pipeline2 = redis.pipeline();
         if (remainingPlayerCount === 0) {
-            await redis.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
-            return
+            pipeline2.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
+            pipeline2.del(`user_to_room:${userId}`);
+            pipeline2.del(`socket_to_user:${playerToBeRemoved.socketId}`);
+            await pipeline2.exec();
+            return;
         }
-        const freshPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
-        io.to(roomId).emit('room_state_update', freshPlayers);
+        pipeline2.hdel(playersHashKey, userId);
+        pipeline2.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId);
+        pipeline2.del(`user_to_room:${userId}`);
+        pipeline2.del(`socket_to_user:${playerToBeRemoved.socketId}`);
+        if (isAdmin && newAdminSocketId) {
+            pipeline2.hset(roomKey, 'adminId', newAdminSocketId);
+        }
+        await pipeline2.exec();
+        io.to(roomId).emit('room_state_update', remainingPlayers);
         io.to(roomId).emit('player_leaved', {
             isAdmin,
             newAdminUserName,
@@ -216,31 +215,26 @@ export const handlePlayerPermanentlyLeft = async (io: Server, userId: string) =>
             roomId
         });
     } catch (error) {
-        console.log("Error in permanently lefting player : ", error)
+        console.error("Error encountered handling permanent player departure: ", error);
     }
-}
+};
 
 export const leaveRoom = (io: Server, socket: Socket) => {
-    //roomexists
-    //adminId
-    //if one player only disband room
-    //if admin : pick random from players(except userId) room adminId,
-    //for both admin&non-admin : remove from players,and also its taken avatar
-    //emit room_state_update,leave_success,player_leaved{isAdmin,newAdminUserName,userName}
-    socket.on('leave_room', async (data: {
-        roomId: string,
-        userId: string
-    }) => {
+    socket.on('leave_room', async (data: { roomId: string, userId: string }) => {
         try {
             const { roomId, userId } = data;
             const roomKey = `room:${roomId}`;
             const playersHashKey = `${roomKey}:players`;
-            const roomExists = await redis.exists(roomKey);
+            const pipeline1 = redis.pipeline();
+            pipeline1.exists(roomKey);
+            pipeline1.hget(roomKey, 'adminId');
+            pipeline1.hgetall(playersHashKey);
+            const results1 = await pipeline1.exec();
+            if (!results1) return;
+            const roomExists = results1[0][1] as number;
             if (!roomExists) return;
-            const [adminId, playersRaw] = await Promise.all([
-                redis.hget(roomKey, 'adminId'),
-                redis.hgetall(playersHashKey)
-            ]);
+            const adminId = results1[1][1] as string | null;
+            const playersRaw = results1[2][1] as Record<string, string> || {};
             const targetPlayerRaw = playersRaw[userId];
             if (!targetPlayerRaw) {
                 return socket.emit('game_error', { message: "Player profile not discovered in this channel" });
@@ -248,31 +242,38 @@ export const leaveRoom = (io: Server, socket: Socket) => {
             const playerToBeRemoved: IPlayers = JSON.parse(targetPlayerRaw);
             const isAdmin = adminId === socket.id;
             let newAdminUserName = "";
+            let newAdminSocketId: string | null = null;
             if (isAdmin) {
                 const nextHost = Object.values(playersRaw)
                     .map((p) => JSON.parse(p) as IPlayers)
                     .find((p) => p.socketId !== socket.id);
 
                 if (nextHost) {
-                    await redis.hset(roomKey, 'adminId', nextHost.socketId);
+                    newAdminSocketId = nextHost.socketId;
                     newAdminUserName = nextHost.userName;
                 }
             }
-            await Promise.all([
-                redis.hdel(playersHashKey, userId),
-                redis.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId),
-                redis.del(`user_to_room:${userId}`),
-                redis.del(`socket_to_user:${socket.id}`)
-            ]);
             delete playersRaw[userId];
-            const remainingPlayerCount = Object.keys(playersRaw).length;
+            const remainingPlayers = Object.values(playersRaw).map((p) => JSON.parse(p) as IPlayers);
+            const remainingPlayerCount = remainingPlayers.length;
+            const pipeline2 = redis.pipeline();
             if (remainingPlayerCount === 0) {
-                await redis.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
-                await socket.leave(roomId)
-                return
+                pipeline2.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
+                pipeline2.del(`user_to_room:${userId}`);
+                pipeline2.del(`socket_to_user:${socket.id}`);
+                await pipeline2.exec();
+                await socket.leave(roomId);
+                return;
             }
-            const freshPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
-            socket.to(roomId).emit('room_state_update', freshPlayers);
+            pipeline2.hdel(playersHashKey, userId);
+            pipeline2.srem(`${roomKey}:taken_avatars`, playerToBeRemoved.avatarId);
+            pipeline2.del(`user_to_room:${userId}`);
+            pipeline2.del(`socket_to_user:${socket.id}`);
+            if (isAdmin && newAdminSocketId) {
+                pipeline2.hset(roomKey, 'adminId', newAdminSocketId);
+            }
+            await pipeline2.exec();
+            socket.to(roomId).emit('room_state_update', remainingPlayers);
             socket.to(roomId).emit('player_leaved', {
                 isAdmin,
                 newAdminUserName,
@@ -284,539 +285,556 @@ export const leaveRoom = (io: Server, socket: Socket) => {
             console.error("Critical error inside leave vector execution:", error);
             socket.emit('game_error', { message: "Failed to cleanly detach from current workspace infrastructure" });
         }
-    })
-}
+    });
+};
 
 export const disbandRoom = (io: Server, socket: Socket) => {
     socket.on('disband_room', async (data: { roomId: string }) => {
         try {
-            const { roomId } = data
-            const roomKey = `room:${roomId}`
-            const playersHashKey = `${roomKey}:players`
-            const adminId = await redis.hget(roomKey, 'adminId')
+            const { roomId } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const pipeline1 = redis.pipeline();
+            pipeline1.hget(roomKey, 'adminId');
+            pipeline1.hgetall(playersHashKey);
+            const results = await pipeline1.exec();
+            if (!results) return;
+            const adminId = results[0][1] as string | null;
+            const totalRosterRaw = results[1][1] as Record<string, string> || {};
             if (adminId !== socket.id) {
-                return socket.emit('game_error', { message: "Unable to disband room" })
+                return socket.emit('game_error', { message: "Unable to disband room" });
             }
-            const totalRosterRaw = await redis.hgetall(playersHashKey);
-            if (totalRosterRaw) {
-                // 2. Iterate through every player entry to extract active vectors
-                for (const [userId, playerRaw] of Object.entries(totalRosterRaw)) {
-                    const player = JSON.parse(playerRaw);
-                    const socketId = player.socketId;
-
-                    // 3. Clear inverse lookups for this specific player
-                    if (socketId) {
-                        await redis.del(`socket_to_user:${socketId}`);
-                    }
-                    await redis.del(`user_to_room:${userId}`);
-                    await redis.del(roomKey, `${roomKey}:players`, `${roomKey}:taken_avatars`)
+            const pipeline2 = redis.pipeline();
+            for (const [userId, playerRaw] of Object.entries(totalRosterRaw)) {
+                const player = JSON.parse(playerRaw);
+                if (player.socketId) {
+                    pipeline2.del(`socket_to_user:${player.socketId}`);
                 }
+                pipeline2.del(`user_to_room:${userId}`);
             }
-            io.to(roomId).emit('room_disbanded')
+            pipeline2.del(roomKey, playersHashKey, `${roomKey}:taken_avatars`);
+            await pipeline2.exec();
+            io.to(roomId).emit('room_disbanded');
             io.in(roomId).socketsLeave(roomId);
         } catch (error) {
-            console.log("Error in disbanding room : ", error)
-            socket.emit('game_error', { message: "Unable to disband room" })
+            console.error("Error in disbanding room : ", error);
+            socket.emit('game_error', { message: "Unable to disband room" });
         }
-    })
-}
+    });
+};
 
 export const playAgainToggle = (io: Server, socket: Socket) => {
-    socket.on('play_again_toggle', async (data: { roomId: string, socketId: string }) => {
-        const { roomId, socketId } = data
-        console.log("Play again toggle listeners (backend)", socketId, roomId)
-        const roomKey = `room:${roomId}`
-        let userName = ""
-        const allPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-        for (const [userId, playerStr] of Object.entries(allPlayersRaw)) {
-            const player: IPlayers = JSON.parse(playerStr)
-            if (player.socketId === socketId) {
-                userName = player.userName
-            }
+    socket.on('play_again_toggle', async (data: { roomId: string, userId: string }) => {
+        try {
+            const { roomId, userId } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const allPlayersRaw = await redis.hgetall(playersHashKey);
+            const targetPlayerRaw = allPlayersRaw[userId]
+            if (!allPlayersRaw || !targetPlayerRaw) return;
+            const targetPlayer: IPlayers = JSON.parse(targetPlayerRaw);
+            targetPlayer.hasReadiedUp = true;
+            const userName = targetPlayer.userName || "";
+            allPlayersRaw[userId] = JSON.stringify(targetPlayer);
+            const pipeline = redis.pipeline();
+            pipeline.hset(playersHashKey, userId, allPlayersRaw[userId]);
+            await pipeline.exec();
+            const playersList: IPlayers[] = Object.values(allPlayersRaw).map((p) => JSON.parse(p));
+            const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
+            const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
+                userId: player.socketId,
+                userName: player.userName,
+                avatarId: player.avatarId,
+                totalScore: player.score,
+                rank: index + 1,
+                hasReadiedUp: player.hasReadiedUp,
+            }));
+            const endGamePayload = {
+                finalLeaderboard
+            };
+            io.to(roomId).emit('play_again_toggle_success', { endGamePayload, userName });
+        } catch (error) {
+            console.error("Error toggling ready status state:", error);
         }
-        console.log("Emit play again toggle success (backend)", socketId, userName)
-        io.to(roomId).emit('play_again_toggle_success', { socketId, userName })
-    })
-}
+    });
+};
 
 export const playAgain = (io: Server, socket: Socket) => {
-    //roomId
-    //in end game empty roaster means player or make everyone offline (any other way)
-    //join the player in the room with same url
     socket.on('play_again', async (data: { roomId: string }) => {
         try {
-            const { roomId } = data
-            const roomKey = `room:${roomId}`
-            const adminId = await redis.hget(roomKey, 'adminId')
-            const status = await redis.hget(roomKey, 'status')
-            if (status !== 'ended') {
-                return
-            }
+            const { roomId } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const pipeline1 = redis.pipeline();
+            pipeline1.hmget(roomKey, 'adminId', 'status');
+            pipeline1.hgetall(playersHashKey);
+            const results = await pipeline1.exec();
+            if (!results) return;
+            const roomFields = results[0][1] as (string | null)[];
+            const allPlayersRaw = results[1][1] as Record<string, string> || {};
+            const adminId = roomFields[0];
+            const status = roomFields[1];
+            if (status !== 'ended') return;
             if (socket.id !== adminId) {
-                return socket.emit('game_error', { message: 'Only host can change status to lobby' })
+                return socket.emit('game_error', { message: 'Only host can change status to lobby' });
             }
-            //reset players,room
-            await redis.hset(roomKey, {
+            const pipeline2 = redis.pipeline();
+            pipeline2.hset(roomKey, {
                 currentRound: '',
                 currentTurn: '',
                 status: 'lobby',
                 currentCharacterName: '',
                 currentCharacterUrl: '',
                 currentAnswer: '',
-                alternateAnswer: JSON.stringify([]), // ◄ Explicitly make this "[]" instead of letting it convert to ""
+                alternateAnswer: JSON.stringify([]),
                 hint1: '',
                 hint2: '',
-                hint1Revealed: 'false', // ◄ Good practice to make these explicit strings too!
+                hint1Revealed: 'false',
                 hint2Revealed: 'false',
                 timerEndsAt: '',
-            })
-            const allPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-            for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
-                const profile: IPlayers = JSON.parse(profileStr)
-                profile.hasGuessed = false,
-                    profile.turnScore = 0,
-                    profile.score = 0
-                await redis.hset(`${roomKey}:players`, userId, JSON.stringify(profile))
-            }
-            const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-            const resetedAllPlayers: IPlayers[] = Object.values(resetedAllPlayersRaw).map((p) => JSON.parse(p))
-            return io.to(roomId).emit('play_again_success', resetedAllPlayers)
+            });
+            const resetedAllPlayers: IPlayers[] = Object.entries(allPlayersRaw).map(([userId, profileStr]) => {
+                const profile: IPlayers = JSON.parse(profileStr);
+                profile.hasGuessed = false;
+                profile.turnScore = 0;
+                profile.score = 0;
+                profile.hasReadiedUp = false;
+                pipeline2.hset(playersHashKey, userId, JSON.stringify(profile));
+                return profile;
+            });
+            await pipeline2.exec();
+            return io.to(roomId).emit('play_again_success', resetedAllPlayers);
         } catch (error) {
-            console.log("Couldn't reset the game : ", error)
-            return socket.emit('game_error', { message: "Couldn't reset the game" })
+            console.error("Couldn't reset the game : ", error);
+            return socket.emit('game_error', { message: "Couldn't reset the game" });
         }
-    })
-}
+    });
+};
 
 export const kickPlayer = (io: Server, socket: Socket) => {
-    socket.on('kick_player', async (data: {
-        roomId: string;
-        targetSocketId: string
-    }) => {
+    socket.on('kick_player', async (data: { roomId: string; targetSocketId: string }) => {
         try {
-            const { roomId, targetSocketId } = data
-            const roomKey = `room:${roomId}`
-            //check isadmin
-            const adminId = await redis.hget(roomKey, 'adminId')
+            const { roomId, targetSocketId } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const pipeline1 = redis.pipeline();
+            pipeline1.hmget(roomKey, 'adminId', 'status');
+            pipeline1.hgetall(playersHashKey);
+            const results1 = await pipeline1.exec();
+            if (!results1) return;
+            const roomFields = results1[0][1] as (string | null)[];
+            const playersRaw = results1[1][1] as Record<string, string> || {};
+            const adminId = roomFields[0];
+            const status = roomFields[1];
             if (socket.id !== adminId) {
-                return socket.emit('game_error', { message: "Only host can kick players" })
+                return socket.emit('game_error', { message: "Only host can kick players" });
             }
-            //check status lobby
-            const status = await redis.hget(roomKey, 'status')
             if (status !== 'lobby') {
                 return socket.emit("game_error", { message: "Kicking players is disabled mid-game!" });
             }
             let kickedPlayerUserName = "";
             let targetUserId = "";
             let targetAvatarId: number | null = null;
-
-            // 3. Scan the hash map to isolate the matching profile matching the socket target
-            const playersRaw = await redis.hgetall(`${roomKey}:players`);
             for (const [userId, playerStr] of Object.entries(playersRaw)) {
                 const currentPlayer: IPlayers = JSON.parse(playerStr);
-
                 if (currentPlayer.socketId === targetSocketId) {
                     kickedPlayerUserName = currentPlayer.userName;
                     targetUserId = userId;
                     targetAvatarId = currentPlayer.avatarId;
-                    break; // Target identified, break loop early
+                    break;
                 }
             }
-
-            // 4. Fallback safeguard if the target socket is already missing or unindexed
             if (!targetUserId) {
                 return socket.emit("game_error", { message: "Player not found in active lobby memory." });
             }
-
-            // 5. Atomic database extraction cleanups
-            // Remove user from the Redis room players hash map registry
-            await redis.hdel(`${roomKey}:players`, targetUserId);
-
-            // Clean up the unique socket tracker mapping key
-            await redis.del(`socket_to_user:${targetSocketId}`)
-            await redis.del(`user_to_room:${targetUserId}`)
-
-            // Free up the player's avatar slot so other incoming applicants can claim it
+            const pipeline2 = redis.pipeline();
+            pipeline2.hdel(playersHashKey, targetUserId);
+            pipeline2.del(`socket_to_user:${targetSocketId}`);
+            pipeline2.del(`user_to_room:${targetUserId}`);
             if (targetAvatarId !== null) {
-                await redis.srem(`${roomKey}:taken_avatars`, targetAvatarId);
+                pipeline2.srem(`${roomKey}:taken_avatars`, targetAvatarId);
             }
-            //target socket leave the roomId
-
-            // 6. Alert the kicked client immediately so they get redirected to the homepage
+            await pipeline2.exec();
             io.to(targetSocketId).emit("kicked_from_room");
-
-            // Force the disconnected socket pipeline instance to disconnect or drop room channels
             const targetSocketInstance = io.sockets.sockets.get(targetSocketId);
             if (targetSocketInstance) {
                 targetSocketInstance.leave(roomId);
             }
-
-            // 7. Extract the updated roster array and broadcast updates + notice to remaining participants
-            const remainingPlayersRaw = await redis.hgetall(`${roomKey}:players`);
-            const freshRoster: IPlayers[] = Object.values(remainingPlayersRaw).map((v) => JSON.parse(v));
-
-            // Synchronize the room UI list configuration instantly
+            delete playersRaw[targetUserId];
+            const freshRoster: IPlayers[] = Object.values(playersRaw).map((v) => JSON.parse(v));
             io.to(roomId).emit("room_state_update", freshRoster);
-
-            // Print the clean system notice to the chat feed log matrix
             io.to(roomId).emit("feed_message", {
                 userName: "SYSTEM",
                 systemMsg: true,
                 message: `${kickedPlayerUserName} was kicked by the host.`
-            })
+            });
         } catch (error) {
             if (error instanceof Error) {
-                console.log("Internal server error unable to kick : ", error.message)
-                return socket.emit('game_error', { message: 'Internal server error unable to kick' })
+                console.error("Internal server error unable to kick : ", error.message);
+                return socket.emit('game_error', { message: 'Internal server error unable to kick' });
             }
         }
-    })
-}
+    });
+};
 
 export const handlePlayerGuess = (io: Server, socket: Socket) => {
-    socket.on('submit_guess', async (data: {
-        roomId: string,
-        userId: string,
-        guess: string
-    }) => {
+    socket.on('submit_guess', async (data: { roomId: string, userId: string, guess: string }) => {
         try {
-            //room status playing (check)
-            const { roomId, userId, guess } = data
-            const roomKey = `room:${roomId}`
-            const status = await redis.hget(roomKey, 'status')
-            if (status === 'intermission' || status === 'ended') {
-                return
-            }
-            console.log("Inside submit guess guess is :", guess)
-            const playerRaw = await redis.hget(`${roomKey}:players`, userId)
+            const { roomId, userId, guess } = data;
+            const roomKey = `room:${roomId}`;
+            const playersHashKey = `${roomKey}:players`;
+            const trimmedGuess = guess.trim();
+            const cleanedGuess = trimmedGuess.toLowerCase();
+            const pipeline1 = redis.pipeline();
+            pipeline1.hmget(roomKey, 'status', 'currentCharacterName', 'currentAnswer', 'alternateAnswer', 'timerEndsAt');
+            pipeline1.hgetall(playersHashKey);
+            const results1 = await pipeline1.exec();
+            if (!results1) return;
+            const roomFields = results1[0][1] as (string | null)[];
+            const playersRaw = results1[1][1] as Record<string, string> || {};
+            const status = roomFields[0];
+            const answer = roomFields[1];
+            const animeName = roomFields[2];
+            const alternateAnswerRaw = roomFields[3];
+            const timerEndsAtStr = roomFields[4] || "0";
+            if (status === 'intermission' || status === 'ended') return;
+            const playerRaw = playersRaw[userId];
             if (!playerRaw) return;
             const player: IPlayers = JSON.parse(playerRaw);
-            // Block submissions if player already guessed correctly
-            //check guess is right or wrong
-            const answer = await redis.hget(roomKey, 'currentCharacterName')
-            console.log("Inside submit guess and answer is : ", answer)
-            const alternateAnswer: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
-            const cleanedGuess = guess.trim().toLowerCase()
-            const isCorrect = guess.trim() === '' ? false : cleanedGuess === answer || alternateAnswer.includes(cleanedGuess)
-            //right: cal turnscore set hash hasguessed,turnscore,score emit feed_message
+            const alternateAnswer: string[] = JSON.parse(alternateAnswerRaw as string);;
+            const isCorrect = trimmedGuess === '' ? false : (cleanedGuess === answer || cleanedGuess === animeName || alternateAnswer.includes(cleanedGuess));
             if (isCorrect && !player.hasGuessed) {
-                const timerEndsAtStr = await redis.hget(roomKey, "timerEndsAt") || "0";
                 const timeLeftMs = parseInt(timerEndsAtStr) - Date.now();
                 const secondsLeft = Math.max(0, Math.floor(timeLeftMs / 1000));
-                if (secondsLeft === 0) {
-                    return
-                }
-                const earnedTurnScore = 100 + secondsLeft * 8
-                player.hasGuessed = true
-                player.turnScore = earnedTurnScore
-                player.score += earnedTurnScore
-                await redis.hset(`${roomKey}:players`, userId, JSON.stringify(player))
+                if (secondsLeft === 0) return;
+                const earnedTurnScore = 100 + secondsLeft * 8;
+                player.hasGuessed = true;
+                player.turnScore = earnedTurnScore;
+                player.score += earnedTurnScore;
+                const updatedPlayerString = JSON.stringify(player);
+                playersRaw[userId] = updatedPlayerString;
+                const pipeline2 = redis.pipeline();
+                pipeline2.hset(playersHashKey, userId, updatedPlayerString);
+                await pipeline2.exec();
                 io.to(roomId).emit('feed_message', {
                     userName: "SYSTEM",
                     systemMsg: true,
                     message: `${player.userName} guessed the character correctly! 🎉 +${earnedTurnScore} pts`
-                })
-                const allPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-                const allPlayers: IPlayers[] = Object.values(allPlayersRaw).map((p) => JSON.parse(p))
-                //emit room_state_update
-                io.to(roomId).emit('room_state_update', allPlayers)
-                //if all answer end timer
+                });
+                const allPlayers: IPlayers[] = Object.values(playersRaw).map((p) => JSON.parse(p));
+                io.to(roomId).emit('room_state_update', allPlayers);
                 const totalOnlinePlayers = allPlayers.filter(p => p.isOnline).length;
                 const totalGuessedCorrectly = allPlayers.filter(p => p.hasGuessed && p.isOnline).length;
-
                 if (totalGuessedCorrectly >= totalOnlinePlayers) {
                     await endTurnIntermission(io, roomId);
                 }
             }
             else if (!isCorrect) {
-                //wrong emit feed_message : guess
                 io.to(roomId).emit('feed_message', {
                     userName: player.userName,
                     systemMsg: false,
-                    message: guess.trim()
-                })
+                    message: trimmedGuess
+                });
             }
         } catch (error) {
             if (error instanceof Error) {
-                console.log("Failed to parse incoming player guess stream:", error.message)
+                console.error("Failed to parse incoming player guess stream:", error.message);
             }
         }
-    })
-}
+    });
+};
 
 export const endTurnIntermission = async (io: Server, roomId: string) => {
-    //current status not playing
-    const roomKey = `room:${roomId}`
-    const status = await redis.hget(roomKey, 'status')
-    if (status !== 'playing') {
-        return
-    }
-    //set status intermission
-    await redis.hset(roomKey, { status: 'intermission' })
-    //showleaderboard for client (answer and players)
-    const currentAnswer = await redis.hget(roomKey, 'currentAnswer')
-    const currentCharacterName = await redis.hget(roomKey, 'currentCharacterName')
-    const alternateName: string[] = JSON.parse(await redis.hget(roomKey, 'alternateAnswer') as string)
-    const currentCharacterUrl = await redis.hget(roomKey, 'currentCharacterUrl')
-    const playersRaw = await redis.hgetall(`${roomKey}:players`);
+    try {
+        const roomKey = `room:${roomId}`;
+        const playersHashKey = `${roomKey}:players`;
+        const pipeline1 = redis.pipeline();
+        pipeline1.hmget(roomKey, 'status', 'currentCharacterName', 'currentAnswer', 'alternateAnswer', 'currentCharacterUrl');
+        pipeline1.hgetall(playersHashKey);
 
-    // Object.entries splits the hash into an array of tuples: [userIdKey, stringifiedPlayerValue]
-    const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
-        const parsedPlayer = JSON.parse(playerStr);
+        const results1 = await pipeline1.exec();
+        if (!results1) return;
 
-        return {
-            ...parsedPlayer,
-            userId: userId // Injects the Redis hash field key inside the object
-        };
-    });
-    const sortedPlayers = playersList.sort((a, b) => b.score - a.score);
+        const roomFields = results1[0][1] as (string | null)[];
+        const playersRaw = results1[1][1] as Record<string, string> || {};
 
-    // 4. Map into your precise IntermissionData contract layout structure
-    const turnScores = sortedPlayers.map((player) => ({
-        userId: player.socketId, // Mapping socketId or unique key as userId boundary
-        userName: player.userName,
-        avatarId: player.avatarId,
-        pointsGained: player.turnScore,
-        totalScore: player.score
-    }));
-
-    const intermissionPayload = {
-        correctAnswer: currentCharacterName,
-        alternateNames: alternateName,
-        imageUrl: currentCharacterUrl,
-        turnScores // Sent fully ordered from highest to lowest score
-        //here add the anime name also
-    };
-
-    // 5. Transmit the payload matrix down the socket pipes
-    io.to(roomId).emit('round_intermission_start', intermissionPayload);
-    //hold for 4 sec and loadnextround()
-    setTimeout(async () => {
-        const verifyStatus = await redis.hget(roomKey, "status");
-        if (verifyStatus === "intermission") {
-            await loadNextRound(io, roomId);
-        }
-    }, 9000);
-}
-
-export const runRoundTimerLoop = (io: Server, roomId: string, roundId: number, turnId: number) => {
-    const timeInterval = setInterval(async () => {
-        const roomKey = `room:${roomId}`
-        //check safety status lobby,currentround correct
-        const status = await redis.hget(roomKey, 'status')
-        const currentRound = parseInt(await redis.hget(roomKey, 'currentRound') as string)
-        const currentTurn = parseInt(await redis.hget(roomKey, 'currentTurn') as string)
-        const isSafe = status === 'playing' && currentRound === roundId && currentTurn === turnId
-        if (!isSafe) {
-            clearInterval(timeInterval)
-            return
-        }
-        //timeleft in sec
-        const guessTime = parseInt(await redis.hget(roomKey, 'guessTime') as string)
-        const timerEndsAt = parseInt(await redis.hget(roomKey, 'timerEndsAt') as string)
-        const timeLeft = timerEndsAt - Date.now()
-        const timeLeftInSecond = timeLeft / 1000
-        //timerEnd (emdTurnIntermission)
-        if (timeLeft <= 0) {
-            clearInterval(timeInterval)
-            return endTurnIntermission(io, roomId)
-        }
-        //hint emit io
-        if (timeLeftInSecond <= (2 / 3) * guessTime) {
-            const ishint1Revealed = (await redis.hget(roomKey, 'hint1Revealed')) === 'true';
-            if (!ishint1Revealed) {
-                io.to(roomId).emit('hint_reveal', { id: 1, hint: await redis.hget(roomKey, 'hint1') })
-            }
-        }
-        if (timeLeftInSecond <= guessTime / 3) {
-            const ishint2Revealed = (await redis.hget(roomKey, 'hint2Revealed')) === 'true';
-            if (!ishint2Revealed) {
-                io.to(roomId).emit('hint_reveal', { id: 2, hint: await redis.hget(roomKey, 'hint2') })
-            }
-        }
-        //timer tick
-        io.to(roomId).emit('timer_tick', { timeLeftInSecond: Math.max(0, Math.floor(timeLeftInSecond)) })
-    }, 1000)
-}
-
-export const loadNextRound = async (io: Server, roomId: string) => {
-    //remove all the turn score of players ,hasguessed
-    //queue pop char
-    //if no chsr left end game
-    //set char detail in roomKey hash,currentturn+1 ,(check if it is 6 make currentround+=1),timeEndsAt
-    //delete feed
-    //emit init
-    //runtimer
-    const roomKey = `room:${roomId}`
-    const playerKey = `${roomKey}:players`
-    const queueKey = `${roomKey}:queue`
-    const allPlayersRaw = await redis.hgetall(playerKey)
-    for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
-        const profile: IPlayers = JSON.parse(profileStr)
-        profile.hasGuessed = false,
-            profile.turnScore = 0
-        await redis.hset(`${roomKey}:players`, userId, JSON.stringify(profile))
-    }
-    const resetedAllPlayersRaw = await redis.hgetall(`${roomKey}:players`)
-    const resetedAllPlayers: IPlayers[] = Object.values(resetedAllPlayersRaw).map((p) => JSON.parse(p))
-    io.to(roomId).emit('room_state_update', resetedAllPlayers)
-    const nextCharacterRaw = await redis.lpop(queueKey)
-    if (!nextCharacterRaw) {
-        await redis.hset(roomKey, { status: "ended" });
-        const playersRaw = await redis.hgetall(`${roomKey}:players`);
+        const status = roomFields[0];
+        const currentCharacterName = roomFields[1] || "";
+        const animeName = roomFields[2] || "";
+        const alternateAnswerRaw = roomFields[3];
+        const currentCharacterUrl = roomFields[4] || "";
+        if (status !== 'playing') return;
+        await redis.hset(roomKey, { status: 'intermission' });
+        const alternateName: string[] = JSON.parse(alternateAnswerRaw as string);
         const playersList = Object.entries(playersRaw).map(([userId, playerStr]) => {
             const parsedPlayer = JSON.parse(playerStr);
             return {
                 ...parsedPlayer,
-                userId: userId // Injects the Redis hash field key inside the object
+                userId: userId
             };
         });
-
-        // 2. SORTING MECHANISM: Sort descending high-to-low based on overall total points
-        const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
-
-        // 3. Map into the final leaderboard array tracking explicit placement numerical ranks
-        const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
+        const sortedPlayers = playersList.sort((a, b) => b.score - a.score);
+        const turnScores = sortedPlayers.map((player) => ({
             userId: player.socketId,
             userName: player.userName,
             avatarId: player.avatarId,
-            totalScore: player.score,
-            rank: index + 1,// Loop index index tracking placement values (1st, 2nd, 3rd...)
-            hasReadiedUp: false,
+            pointsGained: player.turnScore,
+            totalScore: player.score
         }));
-
-        const endGamePayload = {
-            finalLeaderboard
+        const intermissionPayload = {
+            correctAnswer: currentCharacterName,
+            animeName,
+            alternateNames: alternateName,
+            imageUrl: currentCharacterUrl,
+            turnScores
         };
-        return io.to(roomId).emit('game_ended', endGamePayload)
+        io.to(roomId).emit('round_intermission_start', intermissionPayload);
+        setTimeout(async () => {
+            const verifyStatus = await redis.hget(roomKey, "status");
+            if (verifyStatus === "intermission") {
+                await loadNextRound(io, roomId);
+            }
+        }, 9000);
+    } catch (error) {
+        console.error("Error running turn intermission flow workflow routine:", error);
     }
-    const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw as string)
-    // console.log("I am inside load next round backend current character : ", nextCharacter)
-    const currentRound = parseInt(await redis.hget(roomKey, 'currentRound') as string)
-    const currentTurn = parseInt(await redis.hget(roomKey, 'currentTurn') as string)
-    const imagesInOneRound = parseInt(await redis.hget(roomKey, 'imagesInOneRound') as string)
-    const guessTime = parseInt(await redis.hget(roomKey, 'guessTime') as string)
-    let nextRound = currentRound
-    let nextTurn = currentTurn + 1
-    if (nextTurn === imagesInOneRound + 1) {
-        nextTurn = 1
-        nextRound += 1
+};
+
+export const runRoundTimerLoop = (io: Server, roomId: string, roundId: number, turnId: number) => {
+    const timeInterval = setInterval(async () => {
+        try {
+            const roomKey = `room:${roomId}`;
+            const roomFields = await redis.hmget(
+                roomKey,
+                'status',
+                'currentRound',
+                'currentTurn',
+                'guessTime',
+                'timerEndsAt',
+                'hint1Revealed',
+                'hint1',
+                'hint2Revealed',
+                'hint2'
+            );
+            if (!roomFields) return;
+            const status = roomFields[0];
+            const currentRound = parseInt(roomFields[1] || "0");
+            const currentTurn = parseInt(roomFields[2] || "0");
+            const guessTime = parseInt(roomFields[3] || "0");
+            const timerEndsAt = parseInt(roomFields[4] || "0");
+            const hint1Revealed = roomFields[5];
+            const hint1 = roomFields[6] || "";
+            const hint2Revealed = roomFields[7];
+            const hint2 = roomFields[8] || "";
+            const isSafe = status === 'playing' && currentRound === roundId && currentTurn === turnId;
+            if (!isSafe) {
+                clearInterval(timeInterval);
+                return;
+            }
+            const timeLeft = timerEndsAt - Date.now();
+            const timeLeftInSecond = timeLeft / 1000;
+            if (timeLeft <= 0) {
+                clearInterval(timeInterval);
+                return endTurnIntermission(io, roomId);
+            }
+            const pipeline = redis.pipeline();
+            let shouldExecutePipeline = false;
+            if (timeLeftInSecond <= (2 / 3) * guessTime && hint1Revealed !== 'true') {
+                io.to(roomId).emit('hint_reveal', { id: 1, hint: hint1 });
+                pipeline.hset(roomKey, 'hint1Revealed', 'true');
+                shouldExecutePipeline = true;
+            }
+            if (timeLeftInSecond <= guessTime / 3 && hint2Revealed !== 'true') {
+                io.to(roomId).emit('hint_reveal', { id: 2, hint: hint2 });
+                pipeline.hset(roomKey, 'hint2Revealed', 'true');
+                shouldExecutePipeline = true;
+            }
+            if (shouldExecutePipeline) {
+                await pipeline.exec();
+            }
+            io.to(roomId).emit('timer_tick', {
+                timeLeftInSecond: Math.max(0, Math.floor(timeLeftInSecond))
+            });
+        } catch (error) {
+            console.error(`Error in timer tick execution loop for room ${roomId}:`, error);
+        }
+    }, 1000);
+};
+
+export const loadNextRound = async (io: Server, roomId: string) => {
+    try {
+        const roomKey = `room:${roomId}`;
+        const playerKey = `${roomKey}:players`;
+        const queueKey = `${roomKey}:queue`;
+        const pipeline1 = redis.pipeline();
+        pipeline1.hgetall(playerKey);
+        pipeline1.lpop(queueKey);
+        pipeline1.hmget(roomKey, 'currentRound', 'currentTurn', 'imagesInOneRound', 'guessTime');
+        const results1 = await pipeline1.exec();
+        if (!results1) return;
+        const allPlayersRaw = results1[0][1] as Record<string, string> || {};
+        const nextCharacterRaw = results1[1][1] as string | null;
+        const roomFields = results1[2][1] as (string | null)[];
+        const resetedAllPlayers: IPlayers[] = [];
+        const writePipeline = redis.pipeline();
+        for (const [userId, profileStr] of Object.entries(allPlayersRaw)) {
+            const profile: IPlayers = JSON.parse(profileStr);
+            profile.hasGuessed = false;
+            profile.turnScore = 0;
+            const updatedProfileStr = JSON.stringify(profile);
+            allPlayersRaw[userId] = updatedProfileStr;
+            resetedAllPlayers.push(profile);
+            writePipeline.hset(playerKey, userId, updatedProfileStr);
+        }
+        io.to(roomId).emit('room_state_update', resetedAllPlayers);
+        if (!nextCharacterRaw) {
+            writePipeline.hset(roomKey, { status: "ended" });
+            await writePipeline.exec();
+            const playersList = Object.entries(allPlayersRaw).map(([userId, playerStr]) => {
+                const parsedPlayer = JSON.parse(playerStr);
+                return { ...parsedPlayer, userId };
+            });
+            const sortedFinalStandings = playersList.sort((a, b) => b.score - a.score);
+            const finalLeaderboard = sortedFinalStandings.map((player, index) => ({
+                userId: player.socketId,
+                userName: player.userName,
+                avatarId: player.avatarId,
+                totalScore: player.score,
+                rank: index + 1,
+                hasReadiedUp: player.hasReadiedUp,
+            }));
+            return io.to(roomId).emit('game_ended', { finalLeaderboard });
+        }
+        const nextCharacter: ICharacter = JSON.parse(nextCharacterRaw);
+        const currentRound = parseInt(roomFields[0] || "1");
+        const currentTurn = parseInt(roomFields[1] || "0");
+        const imagesInOneRound = parseInt(roomFields[2] || "5");
+        const guessTime = parseInt(roomFields[3] || "30");
+        let nextRound = currentRound;
+        let nextTurn = currentTurn + 1;
+        if (nextTurn === imagesInOneRound + 1) {
+            nextTurn = 1;
+            nextRound += 1;
+        }
+        const roundDurationMs = guessTime * 1000;
+        const timerEndsAt = Date.now() + roundDurationMs;
+        writePipeline.hset(roomKey, {
+            currentRound: nextRound.toString(),
+            currentTurn: nextTurn.toString(),
+            currentCharacterName: nextCharacter.characterName.toString(),
+            currentCharacterUrl: nextCharacter.imageUrl.toString(),
+            currentAnswer: nextCharacter.animeNameEnglish.toString(),
+            alternateAnswer: JSON.stringify(nextCharacter.alternateName.map((a) => a.toLowerCase())),
+            hint1: nextCharacter.hint1.toString(),
+            hint2: nextCharacter.hint2.toString(),
+            hint1Revealed: 'false',
+            hint2Revealed: 'false',
+            timerEndsAt: timerEndsAt.toString(),
+            status: 'playing'
+        });
+        writePipeline.del(`${roomKey}:feed`);
+        await writePipeline.exec();
+        io.to(roomId).emit("round_init", {
+            currentRound: nextRound,
+            currentTurn: nextTurn,
+            imageUrl: nextCharacter.imageUrl,
+            timerEndsAt,
+            players: resetedAllPlayers
+        });
+        runRoundTimerLoop(io, roomId, nextRound, nextTurn);
+    } catch (error) {
+        console.error("Critical error inside next round load flow script execution:", error);
     }
-    const roundDurationMs = (guessTime) * 1000
-    const timerEndsAt = Date.now() + roundDurationMs;
-    await redis.hset(roomKey, {
-        currentRound: nextRound.toString(),
-        currentTurn: nextTurn.toString(),
-        currentCharacterName: nextCharacter.characterName.toString(),
-        currentCharacterUrl: nextCharacter.imageUrl.toString(),
-        currentAnswer: nextCharacter.animeNameEnglish.toString(),
-        alternateAnswer: JSON.stringify(nextCharacter.alternateName.map((a) => a.toLowerCase())), // ◄ Explicitly make this "[]" instead of letting it convert to ""
-        hint1: nextCharacter.hint1.toString(),
-        hint2: nextCharacter.hint2.toString(),
-        hint1Revealed: 'false',
-        hint2Revealed: 'false',
-        timerEndsAt: timerEndsAt.toString()
-    })
-    await redis.del(`${roomKey}:feed`)
-    await redis.hset(roomKey, { status: 'playing' })
-    io.to(roomId).emit("round_init", {
-        currentRound: nextRound,
-        currentTurn: nextTurn,
-        imageUrl: nextCharacter.imageUrl,
-        timerEndsAt,
-        players: Object.values(await redis.hgetall(playerKey)).map((p) => JSON.parse(p))
-    });
-    runRoundTimerLoop(io, roomId, nextRound, nextTurn)
-}
+};
 
 export const startGame = (io: Server, socket: Socket) => {
-    socket.on('start_game', async (data: {
-        roomId: string
-    }) => {
-        //room exists
-        //isadmin
-        //islobby
-        //fetch character from db and store in redis
-        //remove old char queue
-        //start status->playing currentround 0
-        //loadnextRound
-        //emit game_started
+    socket.on('start_game', async (data: { roomId: string }) => {
         try {
-            const { roomId } = data
-            const roomKey = `room:${roomId}`
-            const roomExists = await redis.exists(roomKey)
-            if (!Boolean(roomExists)) {
-                return socket.emit('game_error', { message: 'Room does not exits' })
+            const { roomId } = data;
+            const roomKey = `room:${roomId}`;
+            const queueKey = `${roomKey}:queue`;
+            const pipeline1 = redis.pipeline();
+            pipeline1.exists(roomKey);
+            pipeline1.hmget(roomKey, 'adminId', 'status', 'totalRounds', 'imagesInOneRound');
+            const results1 = await pipeline1.exec();
+            if (!results1) return;
+            const roomExists = results1[0][1] as number;
+            const roomFields = results1[1][1] as (string | null)[];
+            if (roomExists === 0) {
+                return socket.emit('game_error', { message: 'Room does not exist' });
             }
-            const adminId = await redis.hget(roomKey, 'adminId')
-            const isAdmin = socket.id === adminId
-            if (!isAdmin) {
-                return socket.emit('game_error', { message: 'Only room host can start the game' })
+            const adminId = roomFields[0];
+            const status = roomFields[1];
+            const totalRounds = roomFields[2];
+            const imagesInOneRound = roomFields[3];
+            if (socket.id !== adminId) {
+                return socket.emit('game_error', { message: 'Only room host can start the game' });
             }
-            const status = await redis.hget(roomKey, 'status')
-            if (status !== 'lobby') {
-                return
-            }
-            const totalRounds = await redis.hget(roomKey, 'totalRounds')
-            const imagesInOneRound = await redis.hget(roomKey, 'imagesInOneRound')
-            const noOfRequiredCharacters = Number(totalRounds) * Number(imagesInOneRound)
-            //make this api
-            const charactersPool: ICharacter[] = await Character.aggregate([{ $sample: { size: noOfRequiredCharacters } }]);
+            if (status !== 'lobby') return;
+            const noOfRequiredCharacters = Number(totalRounds || 0) * Number(imagesInOneRound || 0);
+            const charactersPool: ICharacter[] = await Character.aggregate([
+                { $sample: { size: noOfRequiredCharacters } }
+            ]);
             if (charactersPool.length < noOfRequiredCharacters) {
                 return socket.emit("game_error", { message: "Insufficient characters in database pool." });
             }
-            const queueKey = `${roomKey}:queue`
-            await redis.del(queueKey);
-            for (const character of charactersPool) {
-                await redis.rpush(queueKey, JSON.stringify(character))
+            const pipeline2 = redis.pipeline();
+            pipeline2.del(queueKey);
+            const stringifiedCharacters = charactersPool.map(character => JSON.stringify(character));
+            if (stringifiedCharacters.length > 0) {
+                pipeline2.rpush(queueKey, ...stringifiedCharacters);
             }
-            await redis.hset(roomKey, { status: 'playing', currentRound: '1', currentTurn: '1' })
+            pipeline2.hset(roomKey, {
+                status: 'playing',
+                currentRound: '1',
+                currentTurn: '0'
+            });
+            await pipeline2.exec();
             io.to(roomId).emit("game_started");
             await loadNextRound(io, roomId);
         } catch (error) {
             if (error instanceof Error) {
-                console.log("Game Start Crash Execution Error:", error.message)
-                return socket.emit('game_error', { message: 'Game Start Crash Execution Error' })
+                console.error("Game Start Crash Execution Error:", error.message);
+                return socket.emit('game_error', { message: 'Game Start Crash Execution Error' });
             }
         }
-    })
-}
+    });
+};
 
 export const disconnect = (io: Server, socket: Socket) => {
     socket.on('disconnect', async (reason) => {
-        console.log("Inside disconnect listener : (backend)", socket.id)
-        //if socket to userId dont exist then no need to do anything
-        const notOnHomePage = await redis.exists(`socket_to_user:${socket.id}`)
-        console.log("I am on homepage : ", !notOnHomePage)
-        if (!notOnHomePage) return
-        const userId = await redis.get(`socket_to_user:${socket.id}`) as string
-        const roomId = await redis.get(`user_to_room:${userId}`) as string
-        await redis.del(`socket_to_user:${socket.id}`)
-
-        //store this userId from get socket to user id(redis)
-        //roomid from user id to roomid
-        //disconnection timer
-        const playersHashKey = `room:${roomId}:players`;
-        const playerRaw = await redis.hget(playersHashKey, userId);
-        if (!playerRaw) return;
-
-        const player: IPlayers = JSON.parse(playerRaw);
-        if (player.socketId !== socket.id) {
-            console.log(`⚠️ [STALE DISCONNECT IGNORED] Old socket ${socket.id} disconnected, but player has already moved to socket ${player.socketId}`);
-            return;
+        try {
+            const socketToUserKey = `socket_to_user:${socket.id}`;
+            const pipeline1 = redis.pipeline();
+            pipeline1.get(socketToUserKey);
+            pipeline1.del(socketToUserKey);
+            const results1 = await pipeline1.exec();
+            if (!results1) return;
+            const userId = results1[0][1] as string | null;
+            if (!userId) {
+                return;
+            }
+            const userToRoomKey = `user_to_room:${userId}`;
+            const roomId = await redis.get(userToRoomKey);
+            if (!roomId) return;
+            const playersHashKey = `room:${roomId}:players`;
+            const playerRaw = await redis.hget(playersHashKey, userId);
+            if (!playerRaw) return;
+            const player: IPlayers = JSON.parse(playerRaw);
+            if (player.socketId !== socket.id) {
+                return;
+            }
+            player.isOnline = false;
+            const pipeline3 = redis.pipeline();
+            pipeline3.hset(playersHashKey, userId, JSON.stringify(player));
+            await pipeline3.exec();
+            io.to(roomId).emit('player_offline', { socketId: socket.id });
+            disconnectionTimers[userId] = setTimeout(async () => {
+                delete disconnectionTimers[userId];
+                await handlePlayerPermanentlyLeft(io, userId);
+            }, 8000);
+        } catch (error) {
+            console.error("Error during socket disconnect cleanup pipeline:", error);
         }
-
-        // 3. Mark the player's vector state flag as "Away"
-        player.isOnline = false;
-        await redis.hset(playersHashKey, userId, JSON.stringify(player));
-        io.to(roomId).emit('player_offline', { socketId: socket.id });
-        disconnectionTimers[userId] = setTimeout(async () => {
-            console.log("Now i am inside disconnect timer : ", disconnectionTimers)
-            // Clear out references completely
-            delete disconnectionTimers[userId];
-            await handlePlayerPermanentlyLeft(io, userId)
-        }, 8000);
-        console.log("user id is before setting disconnecttimeout : ", userId)
-        console.log(`❌ [SOCKET DETACHED] ID: ${socket.id} | Reason: ${reason}`)
-    })
-}
+    });
+};
