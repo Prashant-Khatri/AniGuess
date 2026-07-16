@@ -22,78 +22,62 @@ export default function RoomHeader({ roomId }: RoomHeaderProps) {
   };
   const isPlaying = status === "playing";
   return (
-    <div className="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-3 sm:p-4 grid grid-cols-1 md:flex md:flex-row xl:grid xl:grid-cols-4 items-center justify-between gap-4 backdrop-blur-md relative overflow-hidden shadow-xl">
-      <div className={`absolute top-0 left-0 h-[1.5px] w-full transition-colors duration-500 ${isPlaying
-          ? "bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"
-          : "bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"
-        }`} />
-      <div className="flex items-center space-x-2 w-full md:w-auto justify-center md:justify-start xl:col-span-1">
+    <div className="w-full bg-white border-4 border-slate-950 rounded-2xl p-1.5 sm:p-2.5 flex flex-row items-center justify-between gap-1.5 relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex-shrink-0 select-none max-h-[52px] sm:max-h-[64px]">
+      <div className={`absolute top-0 left-0 h-[2px] w-full transition-colors duration-500 ${isPlaying ? "bg-rose-600" : "bg-slate-950"}`} />
+      <div className="flex-shrink-0">
         <button
           onClick={copyRoomCode}
-          className="bg-slate-950/80 hover:bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 hover:border-indigo-500/40 flex items-center space-x-2 transition-all duration-200 active:scale-[0.98] group cursor-pointer"
-          title="Copy Core Broadcast Key"
+          className="bg-slate-950 hover:bg-slate-900 px-2 py-1 rounded-lg border-2 border-slate-950 flex items-center space-x-1 sm:space-x-1.5 transition-all duration-200 active:scale-[0.98] group cursor-pointer shadow-[1.5px_1.5px_0px_0px_rgba(244,63,94,0.4)]"
+          title="Copy Room Code"
         >
-          <span className="text-[10px] uppercase tracking-widest font-mono font-black text-slate-500 group-hover:text-indigo-400/70 transition-colors">
-            VECTOR CODE:
+          <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-mono font-black text-rose-500">
+            ROOM:
           </span>
-          <span className="font-mono font-black text-indigo-400 tracking-widest text-sm uppercase">
+          <span className="font-mono font-black text-white tracking-widest text-xs uppercase">
             {roomId || "------"}
           </span>
-          <span className="text-[11px] text-slate-600 group-hover:text-indigo-400 transition-colors pl-1">
+          <span className="text-[10px] pl-0.5 group-hover:scale-110 transition-transform">
             📋
           </span>
         </button>
       </div>
       {isPlaying ? (
-        <div className="w-full md:max-w-md flex-1 order-3 md:order-none animate-fade-in xl:col-span-2">
+        <div className="flex-1 max-w-[100px] sm:max-w-xs px-1 min-h-0 flex items-center justify-center mx-auto">
           <GameLoopTimer />
         </div>
       ) : (
-        <div className="hidden md:flex flex-col items-center justify-center text-center font-mono space-y-0.5 opacity-40 select-none xl:col-span-2">
-          <span className="text-[9px] font-black tracking-widest text-slate-500 uppercase">
-            AWAITING DEPLOYMENT PROTOCOL
-          </span>
-          <span className="text-[10px] text-slate-400 animate-pulse">
-            [ STANDBY FOR COMS LINK ]
+        <div className="flex-1 hidden min-[500px]:flex flex-col items-center justify-center text-center font-mono opacity-40 select-none">
+          <span className="text-[8px] font-black tracking-widest text-slate-950 uppercase">
+            STANDBY
           </span>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto justify-center md:justify-end xl:col-span-1">
-        <div className="flex items-center space-x-3 bg-slate-950/40 px-3 py-1.5 rounded-xl border border-slate-950 w-full sm:w-auto justify-center">
-          <span className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-500">
-            Lobby Admiral:
+      <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+        <div className="flex items-center space-x-1 bg-rose-50 border-2 border-slate-950 px-1.5 py-0.5 rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">
+          <span className="text-[8px] sm:text-[9px] font-mono font-black uppercase text-slate-400">
+            Host:
           </span>
-          <div className="flex items-center space-x-2">
-            <div className="relative w-7 h-7 rounded-full border border-orange-500/30 overflow-hidden bg-slate-900 shadow-md">
+          <div className="flex items-center space-x-1">
+            <div className="relative w-4 h-4 sm:w-5 sm:h-5 rounded border border-slate-950 overflow-hidden bg-white flex-shrink-0">
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={hostName}
-                  className="object-cover w-full h-full"
-                />
+                <img src={avatarUrl} alt={hostName} className="object-cover w-full h-full" />
               ) : (
-                <div className="w-full h-full bg-slate-800 animate-pulse" />
+                <div className="w-full h-full bg-rose-600 animate-pulse" />
               )}
             </div>
-            <span className="font-mono font-black text-orange-400 text-xs uppercase tracking-wide">
-              {hostName || "Syncing..."}
-            </span>
-            <span className="text-[8px] font-mono font-black bg-orange-500/10 border border-orange-500/20 text-orange-400 px-1 rounded tracking-tighter">
-              HOST
+            <span className="font-mono font-black text-rose-600 text-[9px] sm:text-xs uppercase max-w-[45px] sm:max-w-[80px] truncate">
+              {hostName || "..."}
             </span>
           </div>
         </div>
         <button
           onClick={() => handleLeaveRoom(roomId)}
-          className="group relative w-full sm:w-auto px-4 py-2 bg-slate-950 hover:bg-rose-950/20 border border-slate-800 hover:border-rose-500/60 rounded-xl flex items-center justify-center space-x-2 transition-all duration-300 active:scale-95 shadow-md overflow-hidden cursor-pointer"
+          className="group px-1.5 py-0.5 bg-white hover:bg-rose-50 border-2 border-slate-950 rounded-lg flex items-center justify-center space-x-1 transition-all duration-200 active:scale-95 shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] cursor-pointer h-[24px] sm:h-[30px]"
+          title="Leave Room"
         >
-          <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-rose-500/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-
-          <span className="text-xs transition-transform duration-300 group-hover:-translate-x-0.5">
-            🚪
-          </span>
-          <span className="font-mono text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-rose-400 transition-colors">
-            Abort Instance
+          <span className="text-[10px] sm:text-xs">🚪</span>
+          <span className="font-mono text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-slate-950 group-hover:text-rose-600 transition-colors">
+            Leave
           </span>
         </button>
       </div>

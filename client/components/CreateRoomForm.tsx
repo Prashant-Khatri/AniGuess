@@ -16,46 +16,38 @@ interface AvatarGridProps {
     setAvatarId: (id: number) => void;
 }
 const AvatarGrid = React.memo(function AvatarGrid({ avatarId, setAvatarId }: AvatarGridProps) {
+    const isAnySelected = avatarId !== 0;
     return (
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-5 gap-2.5 w-full max-w-md mx-auto aspect-[5/4] overflow-hidden">
             {AVATARS.map((a: Avatar) => {
                 const isSelected = avatarId === a.id;
-                const isAnySelected = avatarId !== 0;
                 const isGreyedOut = isAnySelected && !isSelected;
+
                 return (
-                    <Card
+                    <button
                         key={a.id}
+                        type="button"
                         onClick={() => setAvatarId(a.id)}
-                        className={`cursor-pointer transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
-                            ${isSelected
-                                ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-lg shadow-orange-500/10 z-10'
-                                : 'border-slate-900 bg-slate-900/40 hover:border-slate-700 hover:scale-[1.02]'
+                        className={`relative aspect-square w-full rounded-xl overflow-hidden border-2 transition-all duration-200 outline-none cursor-pointer group
+          ${isSelected
+                                ? 'border-red-600 bg-red-50 scale-105 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-10'
+                                : 'border-slate-950 bg-white hover:border-red-600 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                             }
-                            ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
-                        `}
+          ${isGreyedOut ? 'opacity-40 filter grayscale contrast-125' : 'opacity-100'}
+        `}
+                        title={a.name}
                     >
+                        <Image
+                            src={a.imageUrl}
+                            alt={a.name}
+                            fill
+                            sizes="(max-width: 768px) 20vw, 80px"
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
                         {isSelected && (
-                            <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-bl-md shadow-sm" />
+                            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border border-white rounded-full shadow-sm animate-pulse" />
                         )}
-                        <CardHeader className="p-1.5 text-center bg-slate-950/60 border-b border-slate-900/40">
-                            <CardTitle className={`text-[10px] font-bold tracking-tight truncate transition-colors
-                                ${isSelected ? 'text-orange-400' : 'text-slate-400 group-hover/card:text-slate-200'}`}>
-                                {a.name}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex justify-center p-2.5 bg-transparent">
-                            <div className={`relative rounded-full p-0.5 transition-all duration-300 border
-                                ${isSelected ? 'border-orange-400 scale-110 shadow-sm shadow-orange-400/20' : 'border-slate-800'}`}>
-                                <Image
-                                    src={a.imageUrl}
-                                    alt={a.name}
-                                    height={44}
-                                    width={44}
-                                    className="rounded-full bg-slate-950 object-cover"
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    </button>
                 );
             })}
         </div>
@@ -75,9 +67,9 @@ export default function CreateRoomForm() {
             if (cleanRoomCreated) cleanRoomCreated();
             if (cleanJoinError) cleanJoinError();
         };
-    }, []); 
+    }, []);
     const submitHandler = (e: React.FormEvent) => {
-        e.preventDefault(); 
+        e.preventDefault();
         if (userName.trim() === "") {
             setErrorMessage('Username can\'t be empty');
             return;
@@ -95,50 +87,57 @@ export default function CreateRoomForm() {
     };
 
     return (
-        <form onSubmit={submitHandler} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-orange-500/30 rounded-2xl shadow-xl shadow-orange-500/5 relative backdrop-blur-md overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-orange-500 to-transparent" />
+        <form
+            onSubmit={submitHandler}
+            className="space-y-6 max-w-md mx-auto p-6 bg-white border-4 border-slate-950 rounded-2xl shadow-[8px_8px_0px_0px_rgba(220,38,38,1)] relative overflow-hidden select-none"
+        >
+            <div className="absolute top-0 left-0 w-full h-[6px] bg-red-600" />
+
             <Field className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                    <FieldLabel htmlFor="input-field-username" className="text-xs uppercase font-extrabold tracking-wider text-slate-300 group-focus-within:text-orange-400 transition-colors">
-                        ✦ Player Codename
+                    <FieldLabel
+                        htmlFor="input-field-username"
+                        className="text-xs uppercase font-mono font-black tracking-widest text-slate-950 group-focus-within:text-red-600 transition-colors"
+                    >
+                        Player Name
                     </FieldLabel>
                 </div>
                 <Input
                     id="input-field-username"
                     type="text"
-                    placeholder="ENTER CODENAME..."
+                    placeholder="ENTER YOUR NAME..."
                     value={userName}
                     onChange={(e) => {
                         setUserName(e.target.value);
                         if (e.target.value !== "") setErrorMessage("");
                     }}
-                    className={`bg-slate-900/60 border-2 uppercase font-mono tracking-wide placeholder:text-slate-600 text-sm text-white focus:ring-0 rounded-xl transition-all duration-200
-                        ${errorMessage !== '' && userName === ''
-                            ? 'border-red-500 focus:border-red-500 shadow-md shadow-red-500/10'
-                            : 'border-slate-800 focus:border-orange-500 focus:shadow-md focus:shadow-orange-500/10'
+                    className={`w-full px-3 py-2.5 bg-slate-50 border-2 uppercase font-mono font-bold tracking-wide placeholder:text-slate-400 text-sm text-slate-950 focus:outline-none focus:ring-0 rounded-xl transition-all duration-150
+        ${errorMessage !== '' && userName === ''
+                            ? 'border-red-600 bg-red-50 focus:border-red-600 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]'
+                            : 'border-slate-950 focus:border-red-600 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                         }`}
                 />
-                <FieldDescription className="text-[11px] font-medium text-slate-500 tracking-normal">
-                    This moniker will identify your statistics on the public scoreboard matrix.
+                <FieldDescription className="text-[11px] font-mono font-bold text-slate-500 tracking-tight">
+                    This name will be shown directly on the live leaderboard.
                 </FieldDescription>
                 {errorMessage !== '' && userName === '' && (
-                    <FieldError className="text-xs font-bold text-red-500 flex items-center mt-1 animate-pulse">
+                    <FieldError className="text-xs font-mono font-black text-red-600 flex items-center mt-1 animate-pulse">
                         ⚠️ {errorMessage}
                     </FieldError>
                 )}
             </Field>
             <div className="space-y-3">
-                <label className="text-xs uppercase font-extrabold tracking-wider text-slate-300 block">
-                    🧬 Select Avatar Frame
+                <label className="text-xs uppercase font-mono font-black tracking-widest text-slate-950 block">
+                    Select Avatar
                 </label>
                 <AvatarGrid avatarId={avatarId} setAvatarId={setAvatarId} />
             </div>
             <Button
-                type='submit'
+                type="submit"
                 disabled={!userName.trim() || avatarId === 0}
-                className="w-full py-6 mt-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 disabled:from-slate-900 disabled:to-slate-900 text-slate-950 disabled:text-slate-600 font-black tracking-widest text-sm uppercase rounded-xl border border-orange-400/20 hover:border-orange-400/40 shadow-lg hover:shadow-orange-500/20 transition-all duration-300 transform active:scale-95 cursor-pointer"
+                className="w-full py-4 mt-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-mono font-black tracking-wider text-xs uppercase rounded-xl border-4 border-slate-950 disabled:border-slate-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all duration-150 cursor-pointer"
             >
-                ⚡ Initialize Room Vector ⚡
+                Enter Lobby
             </Button>
         </form>
     );

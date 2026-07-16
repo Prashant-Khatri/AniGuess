@@ -502,7 +502,7 @@ export const handlePlayerGuess = (io: Server, socket: Socket) => {
             if (!playerRaw) return;
             const player: IPlayers = JSON.parse(playerRaw);
             const alternateAnswer: string[] = JSON.parse(alternateAnswerRaw as string);;
-            const isCorrect = trimmedGuess === '' ? false : (cleanedGuess === answer || cleanedGuess === animeName || alternateAnswer.includes(cleanedGuess));
+            const isCorrect = trimmedGuess === '' ? false : (cleanedGuess === answer || cleanedGuess === animeName?.toLowerCase() || alternateAnswer.includes(cleanedGuess));
             if (isCorrect && !player.hasGuessed) {
                 const timeLeftMs = parseInt(timerEndsAtStr) - Date.now();
                 const secondsLeft = Math.max(0, Math.floor(timeLeftMs / 1000));

@@ -31,11 +31,10 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
     }, 400);
   };
   return (
-    <div className="w-full bg-slate-900/40 border border-slate-800 rounded-2xl p-3 backdrop-blur-md shadow-xl relative overflow-hidden group">
-      <div className="absolute bottom-0 left-0 h-[1.5px] w-full bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-      <form onSubmit={dispatchGuess} className="flex items-center gap-2.5">
+    <div className="w-full bg-white border-4 border-slate-950 rounded-2xl p-1.5 sm:p-2 relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex-shrink-0 select-none">
+      <form onSubmit={dispatchGuess} className="flex items-center gap-2">
         <div className="relative flex-1 flex items-center">
-          <span className="absolute left-4 font-mono text-indigo-400 text-sm font-black select-none animate-pulse">
+          <span className="absolute left-3 font-mono text-rose-600 text-xs font-black select-none animate-pulse">
             ❯
           </span>
           <input
@@ -43,8 +42,8 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
             type="text"
             value={guessText}
             onChange={(e) => setGuessText(e.target.value)}
-            placeholder={isPending ? "TRANSMITTING VECTOR DATA..." : "TYPE CHARACTER IDENTITY GUESS..."}
-            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500/50 rounded-xl pl-9 pr-4 py-3.5 font-mono text-xs text-slate-100 placeholder-slate-600 outline-none transition-all duration-200 uppercase tracking-wider shadow-inner"
+            placeholder={isPending ? "TRANSMITTING..." : "GUESS CHARACTER..."}
+            className="w-full bg-slate-50 border-2 border-slate-950 focus:bg-rose-50 rounded-lg pl-7 pr-12 py-1.5 sm:py-2 font-mono text-xs text-slate-950 placeholder-slate-400 outline-none transition-all uppercase tracking-wider font-black"
           />
           {guessText && !isPending && (
             <button
@@ -53,7 +52,7 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
                 setGuessText('');
                 inputRef.current?.focus();
               }}
-              className="absolute right-3 text-slate-600 hover:text-slate-400 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 cursor-pointer"
+              className="absolute right-2 text-slate-950 hover:bg-rose-50 text-[8px] font-mono px-1 py-0.5 rounded border border-slate-950 bg-white font-black cursor-pointer shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
             >
               ESC
             </button>
@@ -62,9 +61,9 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
         <button
           type="submit"
           disabled={!guessText.trim() || isPending}
-          className="px-6 py-3.5 font-mono text-xs font-black uppercase tracking-widest text-slate-950 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 shadow-md hover:shadow-indigo-500/10 transition-all duration-200 transform active:scale-[0.97] disabled:opacity-20 disabled:filter disabled:grayscale disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
+          className="px-4 py-1.5 sm:py-2 font-mono text-xs font-black uppercase tracking-wider text-white rounded-lg bg-rose-600 hover:bg-rose-500 border-2 border-slate-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all transform active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none cursor-pointer flex-shrink-0"
         >
-          {isPending ? "📡 ..." : "LAUNCH ⚡"}
+          {isPending ? "..." : "LAUNCH"}
         </button>
       </form>
     </div>

@@ -2,7 +2,6 @@
 import { socket } from "@/lib/socket";
 import React, { useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useGameHandler } from "@/hooks/useGameHandler";
 import { useSocketListener } from "@/hooks/useSocketListener";
 import { useGameStore } from "@/store/game.store";
 import LobbyRoomConfig from "./LobbyRoomConfig";
@@ -16,7 +15,7 @@ export interface IPlayers {
   hasGuessed: boolean;
   isOnline: boolean;
   isAdmin: boolean;
-  hasReadiedUp : boolean
+  hasReadiedUp: boolean
 }
 
 export default function DisplayScreen() {
@@ -27,7 +26,6 @@ export default function DisplayScreen() {
   const hint1 = useGameStore((state) => state.hint1);
   const hint2 = useGameStore((state) => state.hint2);
   const status = useGameStore((state) => state.status);
-  const { startGame } = useGameHandler(socket)
   const { hintRevealListener } = useSocketListener(socket)
 
   useEffect(() => {
@@ -38,54 +36,61 @@ export default function DisplayScreen() {
   }, []);
 
   return (
-    <div className="w-full bg-slate-900/40 border border-slate-800 rounded-3xl p-4 sm:p-6 backdrop-blur-md shadow-2xl flex flex-col items-center justify-center relative min-h-[460px] overflow-hidden group">
+    <div className="w-full h-full bg-white border-4 border-slate-950 rounded-2xl p-2.5 sm:p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex flex-col items-center justify-center relative min-h-0 overflow-hidden select-none">
       {status === 'playing' && (
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-overlay pointer-events-none transition-opacity duration-1000 animate-pulse"
+          className="absolute inset-0 bg-cover bg-center opacity-[0.06] mix-blend-multiply pointer-events-none"
           style={{ backgroundImage: `url('https://i.pinimg.com/736x/62/dc/4f/62dc4f10cee9cccab5588d311195569e.jpg')` }}
         />
       )}
       {status === 'lobby' && (
-        <LobbyRoomConfig roomId={roomId}/>
+        <div className="w-full h-full overflow-y-auto min-h-0 custom-scrollbar">
+          <LobbyRoomConfig roomId={roomId} />
+        </div>
       )}
       {status === 'playing' && (
-        <div className="w-full flex flex-col items-center z-10">
-          <div className="absolute top-4 left-4 bg-slate-950/80 border border-slate-800 px-3 py-1 rounded-md text-[10px] font-mono font-black text-indigo-400 tracking-widest">
-            ROUND 0{round}
+        <div className="w-full h-full flex flex-col items-center justify-between z-10 min-h-0 space-y-2">
+          <div className="w-full flex items-center justify-between flex-shrink-0">
+            <span className="bg-slate-950 border-2 border-slate-950 px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-black text-rose-500 uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(244,63,94,1)]">
+              STAGE 0{round}
+            </span>
+            <span className="bg-rose-500 border-2 border-slate-950 px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-black text-white uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] animate-pulse">
+              DISPEL THE ILLUSION...
+            </span>
           </div>
-          <div className="absolute top-4 right-4 bg-slate-950/80 border border-slate-800 px-3 py-1 rounded-md text-[10px] font-mono font-black text-orange-400 tracking-widest animate-pulse">
-            ⚡ SCANNING VECTOR...
-          </div>
-          <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-2xl border-2 border-slate-800 bg-slate-950 overflow-hidden shadow-2xl shadow-black/80">
+          <div className="relative flex-1 max-h-[150px] sm:max-h-[220px] aspect-square rounded-xl border-4 border-slate-950 bg-rose-50/10 overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] ring-2 ring-rose-500/20 ring-offset-2">
             {imageUrl ? (
               <img
                 src={imageUrl}
                 alt="Target Identity"
-                className="w-full h-full object-cover blur-xs saturate-50 brightness-75 animate-anime-zoom"
+                className="w-full h-full object-cover transition-transform duration-300"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-slate-950 animate-pulse">
-                <span className="font-mono text-xs text-slate-600 uppercase tracking-widest">Awaiting Vector...</span>
+              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 animate-pulse">
+                <span className="text-xl mb-1 animate-spin duration-3000">🔴</span>
+                <span className="font-mono text-[9px] text-rose-500 font-bold uppercase tracking-widest">
+                  Casting Jutsu...
+                </span>
               </div>
             )}
-            <div className="absolute inset-0 bg-slate-950/10 pointer-events-none" />
           </div>
-          <div className="mt-6 w-full max-w-md space-y-2">
-            <div className={`p-3 rounded-xl border font-mono text-xs tracking-wide transition-all duration-500 transform
+          <div className="w-full max-w-md grid grid-cols-1 sm:grid-cols-2 gap-2 flex-shrink-0">
+            <div className={`px-2.5 py-1.5 sm:py-2 rounded-xl border-2 font-mono text-[10px] sm:text-xs font-bold tracking-wide transition-all duration-300 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]
               ${hint1
-                ? 'bg-indigo-950/20 border-indigo-500/40 text-indigo-300 opacity-100 translate-y-0 shadow-md shadow-indigo-500/5'
-                : 'bg-slate-950/40 border-slate-900 border-dashed text-slate-600 text-center opacity-50 -translate-y-1'
+                ? 'bg-rose-50 border-slate-950 text-rose-900 shadow-[2px_2px_0px_0px_rgba(244,63,94,1)]'
+                : 'bg-slate-50 border-slate-300 text-slate-400 text-center border-dashed shadow-none'
               }`}
             >
-              {hint1 ? `✦ CLUE ALPHA: ${hint1}` : '🔒 CLUE ALPHA DECRYPTING...'}
+              {hint1 ? `SCROLL I: ${hint1}` : 'SCROLL I SEALED'}
             </div>
-            <div className={`p-3 rounded-xl border font-mono text-xs tracking-wide transition-all duration-500 transform delay-75
+
+            <div className={`px-2.5 py-1.5 sm:py-2 rounded-xl border-2 font-mono text-[10px] sm:text-xs font-bold tracking-wide transition-all duration-300 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]
               ${hint2
-                ? 'bg-amber-950/20 border-amber-500/40 text-amber-300 opacity-100 translate-y-0 shadow-md shadow-amber-500/5'
-                : 'bg-slate-950/40 border-slate-900 border-dashed text-slate-600 text-center opacity-50 -translate-y-1'
+                ? 'bg-slate-950 border-slate-950 text-rose-400 shadow-[2px_2px_0px_0px_rgba(244,63,94,1)]'
+                : 'bg-slate-50 border-slate-300 text-slate-400 text-center border-dashed shadow-none'
               }`}
             >
-              {hint2 ? `✦ CLUE BETA: ${hint2}` : '🔒 CLUE BETA DECRYPTING...'}
+              {hint2 ? `SCROLL II: ${hint2}` : 'SCROLL II SEALED'}
             </div>
           </div>
         </div>

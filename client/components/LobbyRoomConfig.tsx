@@ -36,112 +36,97 @@ function LobbyRoomConfig({ roomId }: { roomId: string }) {
   }, []);
 
   return (
-    <div className="w-full bg-slate-900/60 border border-slate-800 backdrop-blur-xl rounded-2xl p-5 sm:p-6 relative overflow-hidden shadow-2xl">
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-      <div className="flex items-center justify-between mb-6 border-b border-slate-800/60 pb-3">
-        <div className="flex items-center space-x-2">
-          <span className="text-indigo-400 text-lg animate-pulse">🛠️</span>
-          <h2 className="text-sm font-black uppercase tracking-wider font-mono text-slate-200">
-            Room Control Sub-Matrix
+    <div className="w-full h-full bg-white border-4 border-slate-950 rounded-2xl p-2 sm:p-3 relative overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex flex-col justify-between min-h-0 select-none">
+      <div className="w-full flex items-center justify-between pb-1.5 border-b-2 border-slate-950 flex-shrink-0">
+        <div className="flex items-center space-x-1.5">
+          <span className="text-rose-600 text-xs animate-pulse">👁️</span>
+          <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-wider font-mono text-slate-950">
+            Lobby Config
           </h2>
         </div>
-        <span className="text-[10px] font-mono bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-slate-500">
-          NODE://{roomId || "NULL"}
+        <span className="text-[8px] font-mono bg-slate-950 border border-slate-950 px-1.5 py-0.5 rounded font-bold text-rose-500 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+          #{roomId || "NULL"}
         </span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-indigo-500/30 transition">
-          <div className="flex items-center space-x-3">
-            <span className="text-xl filter drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">👥</span>
-            <div>
-              <p className="text-xs font-bold text-slate-300 font-sans">Max Players</p>
-              <p className="text-[10px] text-slate-500 font-mono">LOBBY_CAPACITY</p>
-            </div>
+      <div className="flex-1 my-2 grid grid-cols-2 gap-1.5 items-center content-center min-h-0 overflow-y-auto pr-0.5 custom-scrollbar">
+        <div className="flex flex-row items-center justify-between bg-white border-2 border-slate-950 px-2 py-1 rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] h-8 sm:h-10 w-full gap-2">
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <span className="text-[10px]">👥</span>
+            <p className="text-[9px] font-black font-mono text-slate-950 hidden min-[360px]:inline">Players</p>
           </div>
           <select
             value={maxPlayers}
             onChange={handleSettingChange("maxPlayers")}
             disabled={!isAdmin}
-            className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-indigo-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 max-w-[65px] bg-slate-50 border border-slate-950 font-mono font-black text-[9px] text-rose-600 px-1 py-0.5 rounded focus:outline-none focus:bg-rose-50 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer text-center"
           >
             {[2, 4, 6, 8].map((num) => (
-              <option key={num} value={num}>{num} Members</option>
+              <option key={num} value={num}>{num} Max</option>
             ))}
           </select>
         </div>
-        <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-purple-500/30 transition">
-          <div className="flex items-center space-x-3">
-            <span className="text-xl filter drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">🎯</span>
-            <div>
-              <p className="text-xs font-bold text-slate-300 font-sans">Total Rounds</p>
-              <p className="text-[10px] text-slate-500 font-mono">MATCH_CYCLE_COUNT</p>
-            </div>
+        <div className="flex flex-row items-center justify-between bg-white border-2 border-slate-950 px-2 py-1 rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] h-8 sm:h-10 w-full gap-2">
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <span className="text-[10px]">🎯</span>
+            <p className="text-[9px] font-black font-mono text-slate-950 hidden min-[360px]:inline">Rounds</p>
           </div>
           <select
             value={totalRounds}
             onChange={handleSettingChange("totalRounds")}
             disabled={!isAdmin}
-            className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-purple-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-purple-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 max-w-[65px] bg-slate-50 border border-slate-950 font-mono font-black text-[9px] text-rose-600 px-1 py-0.5 rounded focus:outline-none focus:bg-rose-50 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer text-center"
           >
-            {[1, 3, 5, 7, 10].map((num) => (
-              <option key={num} value={num}>{num} Rounds</option>
+            {[1, 3, 5, 7].map((num) => (
+              <option key={num} value={num}>{num} Sets</option>
             ))}
           </select>
         </div>
-        <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-amber-500/30 transition">
-          <div className="flex items-center space-x-3">
-            <span className="text-xl filter drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">⏱️</span>
-            <div>
-              <p className="text-xs font-bold text-slate-300 font-sans">Guess Time</p>
-              <p className="text-[10px] text-slate-500 font-mono">ROUND_TICK_DURATION</p>
-            </div>
+        <div className="flex flex-row items-center justify-between bg-white border-2 border-slate-950 px-2 py-1 rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] h-8 sm:h-10 w-full gap-2">
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <span className="text-[10px]">⏱️</span>
+            <p className="text-[9px] font-black font-mono text-slate-950 hidden min-[360px]:inline">Time</p>
           </div>
           <select
             value={guessTime}
             onChange={handleSettingChange("guessTime")}
             disabled={!isAdmin}
-            className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-amber-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 max-w-[65px] bg-slate-50 border border-slate-950 font-mono font-black text-[9px] text-rose-600 px-1 py-0.5 rounded focus:outline-none focus:bg-rose-50 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer text-center"
           >
-            {[15, 20, 30, 45, 60, 80].map((sec) => (
-              <option key={sec} value={sec}>{sec} Seconds</option>
+            {[15, 20, 30, 45, 60, 80, 120].map((sec) => (
+              <option key={sec} value={sec}>{sec}s</option>
             ))}
           </select>
         </div>
-        <div className="flex items-center justify-between bg-slate-950/40 border border-slate-800/50 p-3 rounded-xl hover:border-rose-500/30 transition">
-          <div className="flex items-center space-x-3">
-            <span className="text-xl filter drop-shadow-[0_0_8px_rgba(244,63,94,0.5)]">🖼️</span>
-            <div>
-              <p className="text-xs font-bold text-slate-300 font-sans">Images Per Round</p>
-              <p className="text-[10px] text-slate-500 font-mono">TARGET_VECTOR_POOL</p>
-            </div>
+        <div className="flex flex-row items-center justify-between bg-white border-2 border-slate-950 px-2 py-1 rounded-lg shadow-[1.5px_1.5px_0px_0px_rgba(15,23,42,1)] h-8 sm:h-10 w-full gap-2">
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <span className="text-[10px]">🖼️</span>
+            <p className="text-[9px] font-black font-mono text-slate-950 hidden min-[360px]:inline">Cards</p>
           </div>
           <select
             value={imagesInOneRound}
             onChange={handleSettingChange("imagesInOneRound")}
             disabled={!isAdmin}
-            className="bg-slate-900 border border-slate-800 font-mono font-bold text-xs text-rose-400 px-3 py-1.5 rounded-lg focus:outline-none focus:border-rose-500 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 max-w-[65px] bg-slate-50 border border-slate-950 font-mono font-black text-[9px] text-rose-600 px-1 py-0.5 rounded focus:outline-none focus:bg-rose-50 transition disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer text-center"
           >
-            {[1,3, 5, 8, 10, 12].map((num) => (
-              <option key={num} value={num}>{num} Characters</option>
+            {[1, 3, 5].map((num) => (
+              <option key={num} value={num}>{num} Pcs</option>
             ))}
           </select>
         </div>
-
       </div>
-      <div className="mt-6 pt-4 border-t border-slate-800/60 flex flex-col items-center justify-center">
+      <div className="pt-1.5 border-t-2 border-slate-950 flex flex-col items-center justify-center flex-shrink-0 w-full">
         {isAdmin ? (
           <button
             onClick={handleStartGame}
-            className="w-full max-w-sm py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:to-pink-400 text-slate-950 font-mono font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-indigo-500/10 active:scale-[0.98] cursor-pointer relative group overflow-hidden"
+            className="w-full max-w-[240px] py-1.5 bg-rose-600 hover:bg-rose-500 border-2 border-slate-950 text-white font-mono font-black text-[11px] uppercase tracking-wider rounded-lg transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
           >
-            <span className="absolute inset-0 w-full h-full bg-white/10 transform -skew-x-12 -translate-x-full group-hover:animate-shine" />
-            ⚔️ Initiate Match Sequence ⚔️
+             Start Match
           </button>
         ) : (
-          <div className="flex items-center space-x-2.5 px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl max-w-xs text-center animate-pulse">
-            <span className="text-slate-500 text-xs font-mono font-bold">📡</span>
-            <p className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-tight">
-              Awaiting transmission from lobby host...
+          <div className="flex items-center justify-center space-x-2 px-3 py-1 bg-slate-950 border border-slate-950 rounded-lg w-full max-w-[240px] text-center animate-pulse shadow-[1px_1px_0px_0px_rgba(244,63,94,0.3)]">
+            <span className="text-rose-500 text-[10px] font-mono font-bold">📡</span>
+            <p className="text-[8px] font-mono font-black text-rose-400 uppercase tracking-tight">
+              Waiting for host...
             </p>
           </div>
         )}

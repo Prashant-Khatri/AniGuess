@@ -1,41 +1,51 @@
+'use client'
+import React from "react";
+
 export const RefreshLoader = ({ 
-  message = "Re-establishing Neural Link..." 
+  message = "Please wait..." 
 }:{message? : string}) => {
   return (
-    <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center overflow-hidden selection:bg-indigo-500 selection:text-white antialiased font-sans">
-      <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, #4f46e5 1px, transparent 1px),
-            linear-gradient(to bottom, #4f46e5 1px, transparent 1px)
-          `,
-          backgroundSize: '32px 32px'
-        }}
-      />
-      <div className="absolute top-[-20%] left-[-20%] w-[600px] h-[600px] rounded-full bg-indigo-600/10 blur-[140px] pointer-events-none animate-pulse duration-4000" />
-      <div className="absolute bottom-[-20%] right-[-20%] w-[600px] h-[600px] rounded-full bg-orange-600/5 blur-[140px] pointer-events-none animate-pulse duration-3000" />
-      <div className="relative z-10 flex flex-col items-center space-y-6 max-w-sm px-6 text-center">
-        <div className="relative w-32 h-32 flex items-center justify-center">
-          <div className="absolute inset-0 border-2 border-dashed border-indigo-500/30 rounded-full animate-spin duration-10000" />
-          <div className="absolute w-[85%] h-[85%] border border-indigo-500/10 rounded-full flex items-center justify-center animate-ping duration-3000 opacity-40" />
-          <div className="absolute w-[70%] h-[70%] border-4 border-t-indigo-500 border-r-transparent border-b-orange-500/40 border-l-transparent rounded-full animate-spin duration-1000" />
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-400 shadow-[0_0_24px_rgba(79,70,229,0.6)] flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          </div>
+    <div className="fixed inset-0 bg-neutral-950 z-[100] flex flex-col items-center justify-center overflow-hidden antialiased font-sans select-none">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.08)_0%,transparent_70%)] pointer-events-none" />
+      <div className="relative z-10 flex flex-col items-center p-6 sm:p-8 max-w-xs w-full bg-white border-4 border-neutral-950 rounded-2xl shadow-[8px_8px_0px_0px_rgba(220,38,38,1)] text-center">
+        <div className="relative w-28 h-28 flex items-center justify-center mb-6">
+          <div className="absolute inset-0 border-2 border-dashed border-red-600/30 rounded-full animate-[spin_20s_linear_infinite]" />
+          <svg 
+            className="w-20 h-20 animate-[spin_2.5s_linear_infinite] filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]" 
+            viewBox="0 0 100 100" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="50" cy="50" r="46" stroke="#0a0a0a" strokeWidth="4" />
+            <circle cx="50" cy="50" r="41" fill="#dc2626" />
+            <path 
+              d="M 50,50 
+                 C 50,30 38,18 26,26 
+                 C 14,34 32,48 50,50 
+                 C 68,52 76,34 74,26 
+                 C 72,18 56,36 50,50 
+                 C 44,64 56,82 68,78 
+                 C 80,74 62,62 50,50 
+                 C 38,38 24,56 26,68 
+                 C 28,80 44,64 50,50 Z" 
+              fill="#0a0a0a" 
+            />
+            <circle cx="50" cy="50" r="7" fill="#0a0a0a" />
+            <circle cx="50" cy="50" r="2.5" fill="#ffffff" />
+          </svg>
         </div>
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-indigo-500/10 border border-indigo-500/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
-            <span className="text-[10px] uppercase font-black font-mono tracking-widest text-indigo-400">
-              Syncing Vector Cache
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-neutral-950 text-white border-2 border-neutral-950 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+            <span className="text-[10px] uppercase font-mono font-black tracking-widest">
+              PREPARING
             </span>
           </div>
-          <h2 className="text-sm font-mono font-bold tracking-wide uppercase text-slate-300 animate-pulse duration-1500">
+          <h2 className="text-sm font-mono font-black uppercase tracking-wider text-neutral-950">
             {message}
           </h2>
-          <p className="text-[10px] font-mono text-slate-600 uppercase tracking-tight">
-            Terminal Protocol // Handshake Checkpoint
+          <p className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-wide">
+            Just a brief moment
           </p>
         </div>
       </div>

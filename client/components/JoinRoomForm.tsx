@@ -58,114 +58,107 @@ export default function JoinRoomForm() {
         joinRoom(userName, roomId, avatarId, userIdRef.current || "")
     };
     return (
-        <form onSubmit={handleJoin} className="space-y-6 max-w-md mx-auto p-6 bg-slate-950/80 border-2 border-indigo-500/30 rounded-2xl shadow-xl shadow-indigo-500/5 relative backdrop-blur-md overflow-hidden group">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+        <form
+            onSubmit={handleJoin}
+            className="space-y-6 max-w-md mx-auto p-6 bg-white border-4 border-slate-950 rounded-2xl shadow-[8px_8px_0px_0px_rgba(220,38,38,1)] relative overflow-hidden select-none"
+        >
+            <div className="absolute top-0 left-0 w-full h-[6px] bg-red-600" />
             <Field className="space-y-1.5">
-                <FieldLabel htmlFor="join-room-id" className="text-xs uppercase font-extrabold tracking-wider text-slate-300 group-focus-within:text-indigo-400 transition-colors">
-                    🛰️ Broadcast Channel Code
+                <FieldLabel
+                    htmlFor="join-room-id"
+                    className="text-xs uppercase font-mono font-black tracking-widest text-slate-950 group-focus-within:text-red-600 transition-colors"
+                >
+                    Room Code
                 </FieldLabel>
                 <Input
                     id="join-room-id"
                     type="text"
                     maxLength={6}
-                    placeholder="ENTER 6-LETTER VECTOR..."
+                    placeholder="ENTER 6-LETTER CODE..."
                     value={roomId}
                     onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                    className={`bg-slate-900/60 border-2 uppercase font-mono tracking-widest placeholder:text-slate-600 text-sm text-white focus:ring-0 rounded-xl transition-all duration-200
-                        ${roomError
-                            ? "border-red-500 focus:border-red-500 shadow-md shadow-red-500/10"
-                            : "border-slate-800 focus:border-indigo-500 focus:shadow-md focus:shadow-indigo-500/10"
+                    className={`w-full px-3 py-2.5 bg-slate-50 border-2 uppercase font-mono font-bold tracking-widest placeholder:text-slate-400 text-sm text-slate-950 focus:outline-none focus:ring-0 rounded-xl transition-all duration-150
+        ${roomError
+                            ? "border-red-600 bg-red-50 focus:border-red-600 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]"
+                            : "border-slate-950 focus:border-red-600 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                         }`}
                 />
                 {roomError && (
-                    <p className="text-xs font-bold text-red-500 flex items-center mt-1 animate-pulse">
-                        ⚠️ CHANNEL ERROR: {roomError}
+                    <p className="text-xs font-mono font-black text-red-600 flex items-center mt-1 animate-pulse">
+                        INVALID CODE: {roomError}
                     </p>
                 )}
             </Field>
             <Field className="space-y-1.5">
-                <FieldLabel htmlFor="join-username" className="text-xs uppercase font-extrabold tracking-wider text-slate-300">
-                    ✦ Player Codename
+                <FieldLabel
+                    htmlFor="join-username"
+                    className="text-xs uppercase font-mono font-black tracking-widest text-slate-950"
+                >
+                    Player Name
                 </FieldLabel>
                 <Input
                     id="join-username"
                     type="text"
-                    placeholder="ENTER CODENAME..."
+                    placeholder="ENTER YOUR NAME..."
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="bg-slate-900/60 border-2 border-slate-800 focus:border-indigo-500 focus:shadow-md focus:shadow-indigo-500/10 focus:ring-0 uppercase font-mono tracking-wide placeholder:text-slate-600 text-sm text-white rounded-xl transition-all duration-200"
+                    className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-950 focus:border-red-600 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-0 uppercase font-mono font-bold tracking-wide placeholder:text-slate-400 text-sm text-slate-950 rounded-xl transition-all duration-150"
                 />
             </Field>
             <div className="space-y-3">
-                <label className="text-xs uppercase font-extrabold tracking-wider text-slate-300 block">
-                    🧬 Claim Profile Frame
+                <label className="text-xs uppercase font-mono font-black tracking-widest text-slate-950 block">
+                    Choose Avatar
                 </label>
-                <div className="grid grid-cols-4 gap-2.5">
+
+                <div className="grid grid-cols-5 gap-2.5 w-full max-w-md mx-auto aspect-[5/4] overflow-hidden">
                     {AVATARS.map((a: Avatar) => {
                         const isTaken = takenAvatars.includes(a.id);
                         const isSelected = avatarId === a.id;
-                        const isAnySelected = avatarId !== 0;
-                        const isGreyedOut = (isAnySelected && !isSelected) || isTaken;
+                        const isGreyedOut = (avatarId !== 0 && !isSelected) || isTaken;
                         return (
-                            <Card
+                            <button
                                 key={a.id}
+                                type="button"
+                                disabled={isTaken}
                                 onClick={() => !isTaken && setAvatarId(a.id)}
-                                className={`transition-all duration-300 border-2 rounded-xl overflow-hidden relative group/card
-                                    ${isTaken
-                                        ? 'bg-red-950/5 border-red-950/40 cursor-not-allowed select-none'
-                                        : 'bg-slate-900/40 cursor-pointer'
+                                className={`relative aspect-square w-full rounded-xl overflow-hidden border-2 transition-all duration-200 outline-none group
+              ${isTaken
+                                        ? 'border-slate-300 bg-slate-100 cursor-not-allowed'
+                                        : isSelected
+                                            ? 'border-red-600 bg-red-50 scale-105 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] z-10 cursor-pointer'
+                                            : 'border-slate-950 bg-white hover:border-red-600 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer'
                                     }
-                                    ${isSelected
-                                        ? 'border-indigo-500 bg-indigo-500/10 scale-105 shadow-lg shadow-indigo-500/10 z-10'
-                                        : !isTaken ? 'border-slate-900 hover:border-slate-700 hover:scale-[1.02]' : ''
-                                    }
-                                    ${isGreyedOut ? 'opacity-30 filter grayscale saturate-50' : 'opacity-100'}
-                                `}
+              ${isGreyedOut ? 'opacity-40 filter grayscale contrast-125' : 'opacity-100'}
+            `}
+                                title={isTaken ? `${a.name} (Taken)` : a.name}
                             >
+                                <Image
+                                    src={a.imageUrl}
+                                    alt={a.name}
+                                    fill
+                                    sizes="(max-width: 768px) 20vw, 80px"
+                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
                                 {isTaken ? (
-                                    <span className="absolute top-0 right-0 bg-red-600/90 text-[7px] text-white px-1 py-0.5 font-black uppercase rounded-bl-md tracking-wider shadow-sm z-20">
-                                        LOCKED
-                                    </span>
-                                ) : isSelected ? (
-                                    <div className="absolute top-0 right-0 w-3 h-3 bg-indigo-500 rounded-bl-md shadow-sm z-20" />
-                                ) : null}
-
-                                <CardHeader className="p-1.5 text-center bg-slate-950/60 border-b border-slate-900/40">
-                                    <CardTitle className={`text-[10px] font-bold tracking-tight truncate transition-colors
-                                        ${isTaken
-                                            ? 'text-red-500/70'
-                                            : isSelected ? 'text-indigo-400' : 'text-slate-400 group-hover/card:text-slate-200'
-                                        }`}>
-                                        {a.name}
-                                    </CardTitle>
-                                </CardHeader>
-
-                                <CardContent className="flex justify-center p-2.5 bg-transparent">
-                                    <div className={`relative rounded-full p-0.5 transition-all duration-300 border
-                                        ${isSelected
-                                            ? 'border-indigo-400 scale-110 shadow-sm shadow-indigo-400/20'
-                                            : isTaken ? 'border-red-950' : 'border-slate-800'
-                                        }`}>
-                                        <Image
-                                            src={a.imageUrl}
-                                            alt={a.name}
-                                            height={44}
-                                            width={44}
-                                            className="rounded-full bg-slate-950 object-cover"
-                                        />
+                                    <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[0.5px] flex items-center justify-center z-20">
+                                        <span className="bg-red-600 border border-slate-950 text-[7px] text-white px-1 py-0.5 font-mono font-black uppercase rounded tracking-wider shadow-sm">
+                                            TAKEN
+                                        </span>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                ) : isSelected ? (
+                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border border-white rounded-full shadow-sm animate-pulse z-20" />
+                                ) : null}
+                            </button>
                         );
                     })}
                 </div>
             </div>
             <Button
-                type='submit'
+                type="submit"
                 disabled={!!roomError || avatarId === 0 || !userName.trim() || roomId.length < 4}
-                className="w-full py-6 mt-2 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-500 hover:to-violet-400 disabled:from-slate-900 disabled:to-slate-900 text-slate-950 disabled:text-slate-600 font-black tracking-widest text-sm uppercase rounded-xl border border-indigo-400/20 hover:border-indigo-400/40 shadow-lg hover:shadow-indigo-500/20 transition-all duration-300 transform active:scale-95 cursor-pointer"
+                className="w-full py-4 mt-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-mono font-black tracking-wider text-xs uppercase rounded-xl border-4 border-slate-950 disabled:border-slate-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:shadow-none hover:translate-y-0.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all duration-150 cursor-pointer"
             >
-                ⚡ Infiltrate Match Vector ⚡
+                Join Lobby
             </Button>
         </form>
     );
