@@ -39,8 +39,8 @@ export default function DisplayScreen() {
     <div className="w-full h-full bg-white border-4 border-slate-950 rounded-2xl p-2.5 sm:p-4 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] flex flex-col items-center justify-center relative min-h-0 overflow-hidden select-none">
       {status === 'playing' && (
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-[0.06] mix-blend-multiply pointer-events-none"
-          style={{ backgroundImage: `url('https://i.pinimg.com/736x/62/dc/4f/62dc4f10cee9cccab5588d311195569e.jpg')` }}
+          className="absolute inset-0 bg-cover bg-center mix-blend-multiply pointer-events-none"
+          style={{ backgroundImage: `url('https://res.cloudinary.com/dhdagkd03/image/upload/c_fill,g_auto,q_80/v1784294307/illusion-background_xe9jgr.png')` }}
         />
       )}
       {status === 'lobby' && (
@@ -56,6 +56,11 @@ export default function DisplayScreen() {
             </span>
             <span className="bg-rose-500 border-2 border-slate-950 px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-black text-white uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] animate-pulse">
               DISPEL THE ILLUSION...
+            </span>
+          </div>
+          <div className="w-full text-center py-0.5 flex-shrink-0">
+            <span className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400 bg-slate-50 border-2 border-slate-950 px-3 py-0.5 rounded-md inline-block shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]">
+              🎯 GUESS THE CHARACTER OR ANIME
             </span>
           </div>
           <div className="relative flex-1 max-h-[150px] sm:max-h-[220px] aspect-square rounded-xl border-4 border-slate-950 bg-rose-50/10 overflow-hidden shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] ring-2 ring-rose-500/20 ring-offset-2">

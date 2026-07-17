@@ -145,7 +145,6 @@
 }
 
 @theme {
-  /* This automatically registers and builds the utility class: animate-anime-zoom */
   --animate-anime-zoom: anime-zoom 8s ease-in-out infinite;
 
   @keyframes anime-zoom {

@@ -16,15 +16,26 @@ const IntermissionOverlay = () => {
                             <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping" />
                             ANSWER REVEALED
                         </span>
+
                         <div className="relative w-52 h-52 sm:w-56 sm:h-56 mx-auto rounded-2xl border-4 border-slate-950 bg-slate-100 overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                             <img src={intermissionData.imageUrl} alt="Target" className="w-full h-full object-cover" />
                         </div>
+
                         <div className="space-y-1">
                             <h3 className="text-[10px] uppercase font-mono font-black tracking-widest text-slate-400">CORRECT ANSWER:</h3>
                             <h2 className="text-2xl font-black uppercase text-slate-950 tracking-wide">
                                 {intermissionData.correctAnswer}
                             </h2>
                         </div>
+                        {intermissionData.animeName && (
+                            <div className="pt-0.5">
+                                <h3 className="text-[10px] uppercase font-mono font-black tracking-widest text-slate-400 mb-1">ANIME:</h3>
+                                <span className="inline-block text-xs font-mono font-black bg-indigo-50 text-indigo-600 border-2 border-indigo-600 px-3 py-1 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] select-none">
+                                    {intermissionData.animeName.toUpperCase()}
+                                </span>
+                            </div>
+                        )}
+
                         {intermissionData.alternateNames?.length > 0 && (
                             <div className="pt-1">
                                 <p className="text-[10px] font-mono font-black text-slate-400 uppercase tracking-widest mb-1.5">ALSO ACCEPTED:</p>

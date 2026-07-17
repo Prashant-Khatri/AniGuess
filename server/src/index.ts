@@ -1,14 +1,14 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import { app,server } from './socket/socket.js'
 import { connectDB } from './config/db.js'
 import { getAdmin, getTakenAvatars, isAuthorized } from './controllers/redis.controllers.js'
 
-dotenv.config()
 const PORT= process.env.PORT || 8000
+const FRONTEND_URL=process.env.NEXT_FRONTEND_URL || 'http://localhost:3000'
+
 app.use(cors({
-    origin : ['http://localhost:3000'],
+    origin : [FRONTEND_URL],
     methods : ['GET','POST']
 }))
 app.use(express.json())

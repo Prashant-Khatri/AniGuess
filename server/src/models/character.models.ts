@@ -5,7 +5,6 @@ export interface ICharacter{
     animeNameEnglish : string;
     alternateName : string[];
     imageUrl : string;
-    difficulty : 'easy' | 'medium' | 'hard';
     hint1 : string;
     hint2 : string;
 }
@@ -25,10 +24,6 @@ const characterSchema=new Schema<ICharacter>({
     imageUrl : {
         type : String,
         required : true
-    },
-    difficulty : {
-        type : String,
-        enum : ['easy','medium','hard']
     },
     hint1 : {
         type : String,
