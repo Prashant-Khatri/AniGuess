@@ -17,7 +17,6 @@ const io = new Server(server, {
     }
 })
 
-console.log("IO is : ",io)
 
 io.on('connection', (socket: Socket) => {
     console.log('Socket connected : ', socket.id)
