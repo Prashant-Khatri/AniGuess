@@ -7,6 +7,7 @@ import { socket } from "@/lib/socket";
 const CreateRoomForm = dynamic(() => import("@/components/CreateRoomForm"), { ssr: false });
 const JoinRoomForm = dynamic(() => import("@/components/JoinRoomForm"), { ssr: false });
 const ShowcaseSidebar = React.memo(() => {
+  console.log("Socket is in home page : ",socket.id)
   return (
     <div className="relative md:col-span-5 bg-slate-950 min-h-[320px] sm:min-h-[400px] md:min-h-full overflow-hidden flex flex-col justify-end p-6 border-b md:border-b-0 md:border-r-4 border-slate-950 group">
       <div className="absolute inset-0 transition-transform duration-700 ease-out group-hover:scale-105 opacity-50 z-0">

@@ -7,6 +7,8 @@ import { getAdmin, getTakenAvatars, isAuthorized } from './controllers/redis.con
 const PORT= process.env.PORT || 8000
 const FRONTEND_URL=process.env.NEXT_FRONTEND_URL || 'http://localhost:3000'
 
+console.log("Frontend url in index ts",FRONTEND_URL)
+
 app.use(cors({
     origin : [FRONTEND_URL],
     methods : ['GET','POST']

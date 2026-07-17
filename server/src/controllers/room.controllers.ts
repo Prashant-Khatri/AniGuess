@@ -21,6 +21,7 @@ export const createRoom = (io: Server, socket: Socket) => {
     }) => {
         try {
             const { userName, avatarId, userId } = data
+            console.log("I am inside room.controller backend :",userName,avatarId,userId)
             if (!userName || !avatarId || !userId) {
                 return socket.emit('join_error', { message: 'Fill all the required fields' })
             }

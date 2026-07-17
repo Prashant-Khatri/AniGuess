@@ -8,12 +8,16 @@ const app = express()
 const server = createServer(app)
 const FRONTEND_URL=process.env.NEXT_FRONTEND_URL || 'http://localhost:3000'
 
+console.log("Frontend url in socket.ts",FRONTEND_URL)
+
 const io = new Server(server, {
     cors: {
         origin: [FRONTEND_URL],
         methods: ['GET', 'POST']
     }
 })
+
+console.log("IO is : ",io)
 
 io.on('connection', (socket: Socket) => {
     console.log('Socket connected : ', socket.id)

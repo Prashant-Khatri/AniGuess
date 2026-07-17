@@ -3,6 +3,7 @@ import { Socket } from 'socket.io-client';
 export const useRoomHandler = (socket: Socket) => {
   
   const createRoom = (userName: string, avatarId: number, userId: string) => {
+    console.log("I am inside useRoomHandler.ts : ",userName,avatarId,userId)
     if (!socket.connected) socket.connect();
     socket.emit('create_room', { userName, avatarId, userId });
   }
