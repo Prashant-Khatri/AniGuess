@@ -68,7 +68,7 @@ export default function DisplayScreen() {
               <img
                 src={imageUrl}
                 alt="Target Identity"
-                className="w-full h-full object-cover transition-transform duration-300"
+                className="w-full h-full object-cover transition-transform duration-300 blur-sm"
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 animate-pulse">

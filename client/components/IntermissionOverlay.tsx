@@ -63,7 +63,7 @@ const IntermissionOverlay = () => {
                                     <div className="flex items-center space-x-3">
                                         <span className="font-mono font-black text-slate-400 text-xs sm:text-sm">#{index + 1}</span>
                                         <img src={AVATARS[player.avatarId - 1].imageUrl} alt="" className="w-8 h-8 bg-white border-2 border-slate-950 rounded-full" />
-                                        <span className="font-mono font-black text-xs uppercase tracking-wide text-slate-950">{player.userName}</span>
+                                        <span className="font-mono font-black text-xs tracking-wide text-slate-950">{player.userName}</span>
                                     </div>
                                     <div className="flex items-center space-x-3 sm:space-x-4">
                                         <span className="text-xs font-black font-mono text-red-600 animate-pulse">+{player.pointsGained} XP</span>

@@ -74,7 +74,7 @@ export default function RoasterPanel({ roomId }: RosterPanelProps) {
 
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1 flex-wrap">
-                      <span className={`font-mono font-black text-[10px] sm:text-xs truncate max-w-[80px] sm:max-w-[110px] uppercase tracking-wide ${isMe ? 'text-rose-600' : 'text-slate-950'}`}>
+                      <span className={`font-mono font-black text-[10px] sm:text-xs truncate max-w-[80px] sm:max-w-[110px] tracking-wide ${isMe ? 'text-rose-600' : 'text-slate-950'}`}>
                         {player.userName}
                       </span>
                       {player.isAdmin && (

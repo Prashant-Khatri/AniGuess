@@ -6,7 +6,7 @@ import { disbandRoom, disconnect, handlePlayerGuess, kickPlayer, leaveRoom, play
 
 const app = express()
 const server = createServer(app)
-const FRONTEND_URL=process.env.NEXT_FRONTEND_URL || 'http://localhost:3000'
+const FRONTEND_URL=process.env.NEXT_FRONTEND_URL!
 
 console.log("Frontend url in socket.ts",FRONTEND_URL)
 

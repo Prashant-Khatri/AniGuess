@@ -27,8 +27,6 @@ export default function EndGameOverlay({ roomId }: { roomId: string }) {
                         Final Standings
                     </h2>
                 </div>
-
-                {/* Leaderboard List */}
                 <div className="space-y-2 mb-6 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300">
                     {endGameData.finalLeaderboard?.map((entry) => {
                         const avatarUrl = AVATARS[entry.avatarId - 1].imageUrl;
@@ -48,7 +46,7 @@ export default function EndGameOverlay({ roomId }: { roomId: string }) {
                                         alt=""
                                         className="w-8 h-8 bg-white border-2 border-slate-950 rounded-full"
                                     />
-                                    <span className={`font-mono font-black text-xs uppercase tracking-wide ${isWinner ? 'text-red-600 text-sm' : 'text-slate-950'}`}>
+                                    <span className={`font-mono font-black text-xs tracking-wide ${isWinner ? 'text-red-600 text-sm' : 'text-slate-950'}`}>
                                         {entry.userName}
                                     </span>
                                 </div>
@@ -84,7 +82,6 @@ export default function EndGameOverlay({ roomId }: { roomId: string }) {
                                 >
                                     Leave Room
                                 </button>
-                                {/* Admin Close Lobby */}
                                 <button
                                     onClick={() => handleDisbandRoom(roomId)}
                                     className="py-3 bg-slate-950 hover:bg-red-950 text-red-500 border-2 border-slate-950 font-mono font-black text-xs uppercase tracking-wider rounded-xl transition shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] cursor-pointer"

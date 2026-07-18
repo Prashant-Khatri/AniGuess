@@ -60,6 +60,8 @@ interface GameStore {
   isValidating : boolean;
 }
 
+const BACKEND_URL=process.env.NEXT_PUBLIC_SOCKET_URL!
+
 export const useGameStore = create<GameStore>()((set) => ({
   hostName: "",
   avatarUrl: "",
@@ -122,7 +124,7 @@ export const useGameStore = create<GameStore>()((set) => ({
 
   checkTakenAvatars: async (roomId: string) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/taken-avatars/${roomId}`);
+      const res = await axios.get(`${BACKEND_URL}/api/taken-avatars/${roomId}`);
       const numericAvatars = res.data.takenAvatars.map((id: string) => Number(id));
       set({ takenAvatars: numericAvatars, roomError: "" });
     } catch (error) {
@@ -134,7 +136,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   getAdminIdandAvatar : async (targetRoomId: string) => {
     set({ isAdmin: false });
     try {
-      const res = await axios.get(`http://localhost:5000/api/get-admin/${targetRoomId}`);
+      const res = await axios.get(`${BACKEND_URL}/api/get-admin/${targetRoomId}`);
       const { adminId, avatarId, userName } = res.data;
       const foundAvatar = AVATARS.find((a) => a.id === Number(avatarId));
       const fallbackUrl = "https://api.dicebear.com/7.x/bottts/svg?seed=host";
@@ -151,7 +153,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   verifyEntry : async(roomId : string,userId : string,router : AppRouterInstance)=>{
     set({isValidating : true})
     try {
-      const res=await axios.post('http://localhost:5000/api/verify-entry',{
+      const res=await axios.post(`${BACKEND_URL}/api/verify-entry`,{
         roomId,
         userId
       })

@@ -43,7 +43,7 @@ export default function GuessInputBar({ roomId }: GuessInputBarProps) {
             value={guessText}
             onChange={(e) => setGuessText(e.target.value)}
             placeholder={isPending ? "TRANSMITTING..." : "GUESS CHARACTER..."}
-            className="w-full bg-slate-50 border-2 border-slate-950 focus:bg-rose-50 rounded-lg pl-7 pr-12 py-1.5 sm:py-2 font-mono text-xs text-slate-950 placeholder-slate-400 outline-none transition-all uppercase tracking-wider font-black"
+            className="w-full bg-slate-50 border-2 border-slate-950 focus:bg-rose-50 rounded-lg pl-7 pr-12 py-1.5 sm:py-2 font-mono text-xs text-slate-950 placeholder-slate-400 outline-none transition-all tracking-wider font-black"
           />
           {guessText && !isPending && (
             <button

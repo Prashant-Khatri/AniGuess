@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Field, FieldDescription, FieldError, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
-import { Slider } from './ui/slider';
 import { Avatar, AVATARS } from '@/lib/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import Image from 'next/image';
 import { Button } from './ui/button';
 import toast from 'react-hot-toast';
@@ -58,7 +56,6 @@ export default function CreateRoomForm() {
     const [errorMessage, setErrorMessage] = useState<string>("");
     const [avatarId, setAvatarId] = useState<number>(0);
     const { createRoom } = useRoomHandler(socket);
-    const router = useRouter();
     const { roomCreatedListener, joinErrorListener } = useSocketListener(socket);
     useEffect(() => {
         const cleanRoomCreated = roomCreatedListener();
@@ -111,7 +108,7 @@ export default function CreateRoomForm() {
                         setUserName(e.target.value);
                         if (e.target.value !== "") setErrorMessage("");
                     }}
-                    className={`w-full px-3 py-2.5 bg-slate-50 border-2 uppercase font-mono font-bold tracking-wide placeholder:text-slate-400 text-sm text-slate-950 focus:outline-none focus:ring-0 rounded-xl transition-all duration-150
+                    className={`w-full px-3 py-2.5 bg-slate-50 border-2 font-mono font-bold tracking-wide placeholder:text-slate-400 text-sm text-slate-950 focus:outline-none focus:ring-0 rounded-xl transition-all duration-150
         ${errorMessage !== '' && userName === ''
                             ? 'border-red-600 bg-red-50 focus:border-red-600 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]'
                             : 'border-slate-950 focus:border-red-600 focus:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
